@@ -1,0 +1,14 @@
+{
+  "name": "Python, de cabeça",
+  "short_name": "Python de cabeça",
+  "description": "Treinador adaptativo de Python básico para praticar escrita, revisão e prova no papel.",
+  "lang": "pt-BR",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7f6f2",
+  "theme_color": "#244c3b",
+  "icons": [
+    { "src": "icone.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
