@@ -148,9 +148,15 @@
   }
 
   function diagnosis(result, exercise, code) {
-    const firstCaseError = result?.cases?.find(test => test.error)?.error;
+    const failedIndex = result?.cases?.findIndex(test => test.pass === false) ?? -1;
+    const failedCase = failedIndex >= 0 ? result.cases[failedIndex] : null;
+    const firstCaseError = failedCase?.error;
     const error = result?.error || firstCaseError;
     const normalizedCode = code || "";
+    const concise = value => String(value ?? "").slice(0, 180).replace(/\n/g, " ↵ ");
+    const test = exercise.cases?.[failedIndex];
+    const inputDetail = test ? exercise.kind === "function" ? "Argumentos: " + concise(JSON.stringify(test.args)) : "Entrada: " + concise(JSON.stringify(test.inputs || [])) : "";
+    const caseDetail = failedCase ? "Caso " + (failedIndex + 1) + (inputDetail ? " · " + inputDetail : "") + " · Esperado: " + concise(failedCase.expected) + (failedCase.error ? "" : " · Obtido: " + (failedCase.got === "" ? "(saída vazia)" : concise(failedCase.got))) : "";
     if (error) {
       const known = {
         SyntaxError: ["sintaxe", "Erro de sintaxe", "Confira dois-pontos, parênteses, aspas e operadores de comparação."],
@@ -165,20 +171,23 @@
         "Resposta em branco": ["em-branco", "Resposta em branco", "Comece decompondo o enunciado em entrada, processamento e saída."]
       };
       const data = known[error.kind] || ["execucao", error.kind || "Erro de execução", "Leia a linha indicada e reduza o problema a uma operação por vez."];
-      return { key: data[0], title: data[1], tip: data[2], detail: error.message || "" };
+      return { key: data[0], title: data[1], tip: data[2], detail: [error.message || "", caseDetail].filter(Boolean).join(" · ") };
     }
-    if (result?.rules?.length) return { key: "restricao", title: "Estrutura pedida", tip: result.rules[0], detail: result.rules.join(" ") };
-    if (exercise.kind === "function" && result?.cases?.some(test => test.got === "None")) {
-      return { key: "return-print", title: "return x print", tip: "A função precisa devolver o resultado com return; print() apenas mostra texto.", detail: "A chamada devolveu None." };
+    if (result?.rules?.length) return { key: "restricao", title: "Estrutura pedida", tip: result.rules[0], detail: [result.rules.join(" "), caseDetail].filter(Boolean).join(" · ") };
+    if (exercise.kind === "function" && failedCase?.got === "None") {
+      return { key: "return-print", title: "Retorno da função", tip: "Este caso esperava outro valor, mas a função devolveu None. Confira o return em cada caminho; print() apenas mostra texto.", detail: caseDetail };
     }
-    if (/range\s*\(/.test(normalizedCode) && exercise.group.includes("Laços")) {
-      return { key: "range", title: "Limites do range", tip: "O limite final de range() fica de fora. Faça uma pequena lista dos valores gerados.", detail: "A saída divergiu dos testes." };
+    if (failedCase?.changed) {
+      return { key: "mutacao", title: "Lista recebida alterada", tip: "Este exercício pede preservar a lista recebida. Confira as operações que modificam os argumentos e construa uma nova lista para devolver.", detail: caseDetail };
     }
-    if (exercise.id === "soma_ate" || exerciseSkills[exercise.id]?.includes("acumuladores")) {
-      return { key: "acumulador", title: "Acumulador ou contador", tip: "Confira valor inicial, atualização e posição do return/print.", detail: "O resultado acumulado divergiu." };
+    if (failedCase && /range\s*\(/.test(normalizedCode) && String(exercise.group || "").includes("Laços")) {
+      return { key: "range", title: "Hipótese: limites do range", tip: "Uma possibilidade é o limite do laço: range() exclui o limite final. Compare os valores gerados no caso que falhou; a operação feita dentro do laço também pode ser a causa.", detail: caseDetail };
     }
-    if (exercise.kind === "trace") return { key: "rastreamento", title: "Teste de mesa", tip: "Anote o valor de cada variável após cada linha e só então registre os prints.", detail: "A saída prevista não corresponde." };
-    return { key: "casos", title: "Caso não considerado", tip: "Compare o primeiro caso que falhou e teste limites como zero, negativos, empate ou lista vazia.", detail: "A saída obtida foi diferente da esperada." };
+    if (failedCase && (exercise.id === "soma_ate" || exerciseSkills[exercise.id]?.includes("acumuladores"))) {
+      return { key: "acumulador", title: "Hipótese: acumulador ou contador", tip: "Uma possibilidade é a atualização do acumulador. Confira valor inicial, atualização e posição do return/print usando o caso que falhou.", detail: caseDetail };
+    }
+    if (exercise.kind === "trace") return { key: "rastreamento", title: "Teste de mesa", tip: "Anote o valor de cada variável após cada linha e compare com o primeiro caso que falhou.", detail: caseDetail || "A saída prevista não corresponde." };
+    return { key: "casos", title: "Investigue o caso que falhou", tip: "Compare entrada, esperado e obtido antes de escolher uma hipótese. Teste limites como zero, negativos, empate ou lista vazia quando forem relevantes para o enunciado.", detail: caseDetail || "Confira o resultado e a estrutura pedida." };
   }
 
   window.LEARNING_ENGINE = {
