@@ -12,8 +12,17 @@ O progresso usa a chave `python-de-cabeca-v1` do `localStorage`, com estado na v
 
 `AGENTS.md` aponta para este registro e exige atualizar o estado atual em toda alteração de código, no mesmo commit. Os commits devem ser curtos, descritivos e separados por finalidade. O objetivo de manutenção é aprendizagem contínua, com preservação dos dados existentes e abertura sem build.
 
-Este primeiro registro documenta a base anterior à integração das melhorias. A interface existente ainda contém um roteiro de véspera; a revisão em andamento remove essa dependência de uma prova e amplia navegação, editor, feedback, domínio e validação de backups. Os próximos commits registrarão cada implementação e sua integração.
+O registro acompanha a implementação por etapas. A integração da nova interface de estudo contínuo acontece em um commit próprio, depois dos módulos abaixo.
+
+## Progresso e backup
+
+`progresso.js` acrescenta regras independentes da interface para domínio, revisão e validação de backups. Conferir novamente uma rodada concluída não aumenta domínio nem adia sua revisão. Uma variação real tem crédito limitado; revisão após intervalo e resposta sem apoio fornecem evidência mais forte. Tentativas com apoio têm ganho limitado, e erros repetidos recebem uma penalidade por rodada.
+
+`seedCompletedRound` permite migrar respostas já aprovadas preservando pontuação, contadores e datas anteriores. `validateBackup` confere versões 1 a 4, rascunhos, resultados, históricos, datas e sessões antes de permitir substituição de dados. Exercícios indisponíveis são ignorados com aviso; estruturas inválidas são rejeitadas. O formato do estado continua na versão 4, com metadados opcionais de rodada e crédito.
+
+`verificacao/progresso.cjs` cobre essas regras e a migração. A aplicação passa a usar o módulo no commit de integração; sua adição isolada mantém o comportamento da interface existente.
 
 ## Validação
 
-O catálogo foi conferido com `node verificacao/conteudo.cjs`: 136 atividades, 11 unidades e seis grupos distintos no desafio de integração. Este commit adiciona apenas as diretrizes e o registro de estado; não altera o comportamento da aplicação.
+- `node verificacao/conteudo.cjs`: aprovado, com 136 atividades, 11 unidades e seis grupos distintos no desafio de integração.
+- `node --check progresso.js` e `node verificacao/progresso.cjs`: aprovados; 22 verificações de domínio, migração e backup.
