@@ -2,7 +2,7 @@
 
 Atualizado em 02/10/2026.
 
-## Base existente
+## Aplicação e objetivo
 
 `Python, de cabeça` é uma aplicação estática de estudo de Python, com 136 atividades em 11 unidades. Abre pelo `index.html` ou pelo GitHub Pages e usa HTML, CSS e JavaScript sem build ou backend. Oferece prática livre, sessões adaptativas, diagnóstico, caderno de erros, desafios de seis questões e impressão para prática no papel.
 
@@ -12,7 +12,17 @@ O progresso usa a chave `python-de-cabeca-v1` do `localStorage`, com estado na v
 
 `AGENTS.md` aponta para este registro e exige atualizar o estado atual em toda alteração de código, no mesmo commit. Os commits devem ser curtos, descritivos e separados por finalidade. O objetivo de manutenção é aprendizagem contínua, com preservação dos dados existentes e abertura sem build.
 
-O registro acompanha a implementação por etapas. A integração da nova interface de estudo contínuo acontece em um commit próprio, depois dos módulos abaixo.
+As alterações foram separadas em diretrizes de manutenção, regras de progresso e backup, editor e diagnóstico, e integração da experiência de aprendizagem. Cada etapa atualiza este registro.
+
+## Experiência de aprendizagem
+
+`index.html`, `styles.css`, `manifest.webmanifest` e `treinador.js` apresentam a aplicação como um espaço de estudo contínuo. O roteiro de véspera, a data fixa e o bloco de prioridades para amanhã foram removidos. A entrada oferece continuar o estudo, montar o treino do dia e iniciar o diagnóstico. Revisão de fundamentos e desafio de integração ficam em “Mais formas de praticar”; os 136 exercícios foram preservados.
+
+A busca por título ou conceito aceita diferenças de acentuação e combina unidade com situação: todos, não tentados, erros para revisar e revisão pendente. Digitar na busca mantém o foco. Um resultado vazio permite limpar filtros sem quebrar o exercício aberto ou seus botões de navegação. A lista lateral tem limite de altura também entre 801 e 899 pixels de largura.
+
+O último modo de estudo e os identificadores das rodadas são persistidos. “Continuar de onde parei” retoma sessões e desafios abertos após recarregar. A troca de sessão pede confirmação quando substituir respostas em andamento. Durante a correção, alterações de exercício, formato e sessão ficam bloqueadas; a entrega guarda o contexto da tentativa para impedir atribuir um resultado à resposta errada.
+
+O rodapé mantém três referências, que abrem em nova aba: [site do professor](https://prdm0.github.io/curso_python/#/title-slide), [repositório do professor no GitHub](https://github.com/prdm0/curso_python) e [Python Iluminado](https://pythoniluminado.netlify.app/). O repositório orienta parte do mapeamento de tópicos; Python Iluminado é material complementar. Os enunciados, dados e soluções da bancada são próprios. `README.md` e `LEIA-ME.md` descrevem essa experiência e as referências.
 
 ## Progresso e backup
 
@@ -20,18 +30,33 @@ O registro acompanha a implementação por etapas. A integração da nova interf
 
 `seedCompletedRound` permite migrar respostas já aprovadas preservando pontuação, contadores e datas anteriores. `validateBackup` confere versões 1 a 4, rascunhos, resultados, históricos, datas e sessões antes de permitir substituição de dados. Exercícios indisponíveis são ignorados com aviso; estruturas inválidas são rejeitadas. O formato do estado continua na versão 4, com metadados opcionais de rodada e crédito.
 
-`verificacao/progresso.cjs` cobre essas regras e a migração. A aplicação passa a usar o módulo no commit de integração; sua adição isolada mantém o comportamento da interface existente.
+`treinador.js` usa o módulo na correção e na restauração de respostas antigas, comparando os casos reais da variação. O uso de apoio é registrado na tentativa entregue e não muda retroativamente ao abrir uma dica depois de um acerto. Na importação, um arquivo de até 5 MB é validado e mostra rascunhos, tentativas e erros pendentes antes de substituir o progresso. É possível exportar os dados atuais ou cancelar. Um arquivo inválido não altera o progresso salvo.
+
+`verificacao/progresso.cjs` cobre essas regras, a migração e os formatos de backup.
 
 ## Editor e diagnóstico
 
 `editor.js` mantém o campo de texto nativo e oferece números de linha, rolagem sincronizada, recuo ao pressionar Enter, remoção de recuo com Backspace e indicação acessível da linha com erro. A inserção nativa preserva desfazer/refazer quando disponível. A comparação de resultados mostra a primeira diferença, evidencia espaços e limites de linha e oferece um bloco recolhido com os dois resultados completos, limitado a 8.000 caracteres por saída.
 
-`aprendizagem.js` vincula o diagnóstico ao primeiro caso que falhou, com entrada, esperado e obtido. Orientações inferidas para `range` e acumuladores aparecem como hipóteses. Um retorno `None` válido não é tratado como erro de `return`. O módulo do editor e seus estilos são conectados à interface no commit de integração.
+`aprendizagem.js` vincula o diagnóstico ao primeiro caso que falhou, com entrada, esperado e obtido. Orientações inferidas para `range` e acumuladores aparecem como hipóteses. Um retorno `None` válido não é tratado como erro de `return`. `treinador.js` conecta o editor e a comparação à interface; `styles.css` oferece os destaques e a apresentação responsiva. A consulta rápida diferencia explicitamente `=`, `==` e `>=`.
 
 `verificacao/editor.cjs` cobre recuo, comentários e strings, localização Unicode de diferenças e diagnósticos. O catálogo e suas soluções permanecem os mesmos.
+
+## Cache e publicação
+
+`service-worker.js` usa o cache `python-de-cabeca-v6`, incluindo `progresso.js` e `editor.js`. `.github/workflows/pages.yml` verifica os três conjuntos de testes sem navegador e publica também os novos módulos. As fontes de manutenção e os artefatos de teste não entram na lista de arquivos públicos. Os commits desta revisão são locais; a publicação ocorre quando forem enviados para `main` no GitHub.
 
 ## Validação
 
 - `node verificacao/conteudo.cjs`: aprovado, com 136 atividades, 11 unidades e seis grupos distintos no desafio de integração.
 - `node --check progresso.js` e `node verificacao/progresso.cjs`: aprovados; 22 verificações de domínio, migração e backup.
 - `node --check editor.js`, `node --check aprendizagem.js` e `node verificacao/editor.cjs`: aprovados.
+- Sintaxe de todos os arquivos JavaScript e `git diff --check`: aprovados.
+- `node verificacao/verificar.cjs --layout-only`: aprovado, com busca mantendo foco, migração de resposta antiga, recuo/desfazer/refazer e layout em 1365, 850 e 390 pixels.
+- `node verificacao/verificar.cjs`: aprovado na rodada final, incluindo as 56 soluções executáveis em Python real, proteção durante correção assíncrona, persistência, prévia e rejeição de backup inválido, desafios, interrupção de laço, impressão e recarga offline da interface. As capturas de computador e celular foram inspecionadas.
+
+O verificador usa um perfil temporário do sistema para evitar a sincronização do Drive ao iniciar o navegador. O carregamento inicial do CDN pode ser repetido uma vez pelo teste se atingir o prazo da aplicação. Tentativas anteriores encontraram atraso do navegador ou do CDN; a rodada final completa passou. Capturas e PDF são gerados em `verificacao/artefatos`, ignorada pelo Git.
+
+## Limites atuais
+
+O progresso é local ao navegador, sem conta ou sincronização automática. A correção Python depende do carregamento do CDN; o cache da interface não garante o interpretador offline. O limite de execução continua em quatro segundos. Domínio e dicas são indicadores de estudo; os casos de teste e as verificações estruturais não provam correção para todas as entradas possíveis.

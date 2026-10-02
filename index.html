@@ -14,11 +14,13 @@
   <script defer src="professor.js"></script>
   <script defer src="python.js"></script>
   <script defer src="aprendizagem.js"></script>
+  <script defer src="progresso.js"></script>
+  <script defer src="editor.js"></script>
   <script defer src="treinador.js"></script>
 </head>
 <body>
   <header class="site-header">
-    <div class="brand"><span class="brand-mark" aria-hidden="true">py.</span><div><strong>Bancada de prática</strong><span>Programação Estatística com Python</span></div></div>
+    <div class="brand"><span class="brand-mark" aria-hidden="true">py.</span><div><strong>Bancada de prática</strong><span>Fundamentos, raciocínio e autonomia em Python</span></div></div>
     <div class="header-actions">
       <button id="curriculum-button" class="quiet">Trilha</button>
       <button id="learning-button" class="quiet">Meu aprendizado</button>
@@ -31,30 +33,36 @@
   <div class="intro">
     <p class="eyebrow">DA LÓGICA PARA A ESCRITA</p>
     <h1>Python, de cabeça.</h1>
-    <p>Da lógica mais básica à escrita de programas: entenda cada fundamento, tente sem consultar e revise até conseguir explicar e escrever de memória.</p>
+    <p>Aprenda no seu ritmo: entenda cada fundamento, escreva programas e retome o que precisa de prática para ganhar autonomia em Python.</p>
   </div>
-  <section class="course-review" aria-labelledby="course-title">
-    <div><p class="eyebrow">REVISÃO DE VÉSPERA · 02/10/2026</p><h2 id="course-title">Treine os tópicos do curso do professor.</h2>
-    <p>Reserve 30 minutos para rastrear estruturas e laços, 40 para escrever funções e 50 para um simulado no papel. Depois, revise os erros sem olhar a solução. O roteiro cobre a referência; o recorte exato da prova não foi informado.</p>
-    <p class="small"><a href="https://github.com/prdm0/curso_python" target="_blank" rel="noopener noreferrer">Abrir material do professor</a> · 36 atividades novas, com dados e soluções próprios.</p></div>
-    <div class="course-actions"><button id="course-review-button" class="quiet">Revisão guiada · 12 questões</button><button id="course-exam-button" class="primary">Simulado do curso · 6 questões</button></div>
-    <details><summary>Prioridades e lembretes para amanhã</summary>
-      <p><strong>1. Estruturas:</strong> listas são mutáveis, tuplas são imutáveis, dicionários relacionam chaves e valores, conjuntos eliminam repetidos. <code>{}</code> é dict; <code>set()</code> é conjunto vazio. <code>==</code> compara valores e <code>is</code> compara identidade.</p>
-      <p><strong>2. Laços:</strong> pratique <code>range</code>, <code>enumerate</code>, <code>zip</code>, <code>break</code>, <code>continue</code>, acumuladores e laços aninhados. <code>zip</code> termina com a menor sequência.</p>
-      <p><strong>3. Escrita:</strong> compreensões, <code>items()</code>, parâmetros padrão, <code>*args</code>, <code>**kwargs</code>, retorno, escopo, <code>lambda</code>, <code>map</code> e <code>reduce</code>. Repita um programa completo sem consulta.</p>
-      <p><strong>4. Integração:</strong> condições de fronteira, palíndromos, primos, fatorial e médias de dicionários aninhados. Em matemática, <code>0! = 1</code>. Revise <code>math</code> e séries finitas se esses assuntos foram dados em aula.</p>
-      <p><strong>Contexto do curso:</strong> Git, ambientes virtuais, pip, Jupyter/Markdown e turtle também aparecem na referência. O treino de turtle aqui trabalha o raciocínio; desenhos em janela devem ser executados no Python local. Os títulos finais sobre recursão, closures, geradores, tratamento de erros e decoradores estão sem desenvolvimento no arquivo consultado.</p>
+  <section class="learning-start" aria-label="Comece ou retome seu aprendizado">
+    <div class="study-launcher">
+      <div><p class="eyebrow">SEU PRÓXIMO PASSO</p><p id="continue-study-text" role="status">Comece pela trilha ou descubra o que já sabe com o diagnóstico.</p></div>
+      <div class="learning-start-actions">
+        <button id="continue-study-button" class="primary">Continuar de onde parei</button>
+        <button id="daily-study-button" class="quiet">Treino do dia</button>
+        <button id="diagnostic-study-button" class="quiet">Diagnóstico inicial</button>
+      </div>
+    </div>
+    <details class="foundation-tools">
+      <summary>Mais formas de praticar</summary>
+      <p class="small muted">Recupere os fundamentos em uma sequência guiada ou combine diferentes conceitos em um desafio com correção ao final.</p>
+      <div class="course-actions"><button id="course-review-button" class="quiet">Revisão de fundamentos · 12 questões</button><button id="course-exam-button" class="quiet">Desafio de integração · 6 questões</button></div>
     </details>
   </section>
   <div class="workspace">
     <aside class="sidebar">
-      <div class="mode-switch" role="group" aria-label="Modo de estudo"><button id="coach-mode" aria-pressed="false">Treino do dia</button><button id="practice-mode" aria-pressed="true">Praticar</button><button id="exam-mode" aria-pressed="false">Prova</button></div>
-      <label class="unit-filter-label" for="unit-filter">Unidade</label>
-      <select id="unit-filter"><option value="all">Trilha completa</option></select>
+      <div class="mode-switch" role="group" aria-label="Modo de estudo"><button id="coach-mode" aria-pressed="false">Treino do dia</button><button id="practice-mode" aria-pressed="true">Praticar</button><button id="exam-mode" aria-pressed="false">Desafio</button></div>
+      <div id="exercise-filters" class="exercise-filters" role="group" aria-label="Filtrar exercícios">
+        <div><label class="unit-filter-label" for="unit-filter">Unidade</label><select id="unit-filter"><option value="all">Trilha completa</option></select></div>
+        <div><label class="unit-filter-label" for="exercise-search">Buscar exercício</label><input id="exercise-search" type="search" placeholder="Título ou conceito" autocomplete="off"></div>
+        <div><label class="unit-filter-label" for="exercise-status-filter">Situação</label><select id="exercise-status-filter"><option value="all">Todos os exercícios</option><option value="unseen">Não tentados</option><option value="mistakes">Erros para revisar</option><option value="due">Revisão pendente</option></select></div>
+      </div>
       <div class="progress-heading"><strong id="progress-label">Seu progresso</strong><span id="progress-count"></span></div>
       <progress id="progress" value="0" max="24" aria-label="Exercícios resolvidos"></progress>
       <p class="small muted" id="sidebar-note">Comece do zero. A dica fica a um clique.</p>
       <nav id="exercise-list" aria-label="Exercícios"></nav>
+      <div id="exercise-empty" class="exercise-empty" role="status" hidden><p>Nenhum exercício corresponde a estes filtros.</p><button id="clear-exercise-filters" class="quiet">Limpar filtros</button></div>
       <p class="storage-note" id="storage-status" role="status">Rascunhos salvos neste navegador.</p>
     </aside>
     <main id="main">
@@ -70,9 +78,9 @@
           <button id="new-coach" class="quiet">Montar outro treino</button>
         </div>
       </section>
-      <section id="exam-panel" class="exam-panel" hidden aria-label="Simulado">
-        <div><strong id="exam-title">Simulado de 6 questões</strong><p id="exam-description">Sem dicas e sem correção entre questões. Se quiser, resolva no papel e transcreva antes de entregar.</p></div>
-        <div class="exam-actions"><span id="exam-clock" class="clock" aria-label="Tempo de simulado">00:00</span><button id="finish-exam" class="primary">Entregar e corrigir</button><button id="new-exam" class="quiet">Novo simulado</button></div>
+      <section id="exam-panel" class="exam-panel" hidden aria-label="Desafio de aprendizagem">
+        <div><strong id="exam-title">Desafio de 6 questões</strong><p id="exam-description">Combine o que aprendeu em seis questões, com correção ao final. Se quiser, resolva no papel e transcreva antes de conferir.</p></div>
+        <div class="exam-actions"><span id="exam-clock" class="clock" aria-label="Tempo do desafio">00:00</span><button id="finish-exam" class="primary">Concluir e corrigir</button><button id="new-exam" class="quiet">Novo desafio</button></div>
         <div id="exam-summary" role="status" hidden></div>
       </section>
       <article class="exercise" aria-labelledby="exercise-title">
@@ -108,9 +116,10 @@
         <div id="editor-wrap">
           <div class="editor">
             <div class="editor-heading"><label id="answer-label" for="answer">Sua resposta</label><span id="editor-type">Python 3</span></div>
-            <textarea id="answer" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-describedby="editor-help" placeholder="Comece aqui, de memória…"></textarea>
+            <div class="editor-body"><div id="line-numbers" class="line-numbers" aria-hidden="true"></div><textarea id="answer" wrap="off" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-describedby="editor-help editor-status" placeholder="Comece aqui, de memória…"></textarea></div>
           </div>
-          <p id="editor-help" class="small muted">Tab = 4 espaços · Esc e depois Tab = sair do campo · Ctrl+Enter = verificar</p>
+          <p id="editor-help" class="small muted">Tab = 4 espaços · Enter mantém o recuo · Esc e depois Tab = sair do campo · Ctrl+Enter = verificar</p>
+          <p id="editor-status" class="small error-text" role="status" aria-live="polite" hidden></p>
         </div>
         <section id="trace-workbench" class="trace-workbench" hidden>
           <div class="trace-heading"><div><strong>Tabela de mesa</strong><p class="small muted">Rastreie as variáveis antes de prever a saída.</p></div><button id="add-trace-row" class="quiet">+ Etapa</button></div>
@@ -136,6 +145,12 @@
       <p class="method-note">Um treino que funciona: escreva → confira → entenda o erro → refaça sem olhar. Na próxima rodada, use papel.</p>
     </main>
   </div>
+  <footer class="study-references" aria-labelledby="study-references-title">
+    <h2 id="study-references-title">Referências para aprofundar</h2>
+    <p>Explore outras explicações e exemplos quando quiser ampliar o que está aprendendo.</p>
+    <nav aria-label="Materiais de estudo"><a href="https://prdm0.github.io/curso_python/#/title-slide" target="_blank" rel="noopener noreferrer">Site do professor ↗</a><a href="https://github.com/prdm0/curso_python" target="_blank" rel="noopener noreferrer">Repositório do professor no GitHub ↗</a><a href="https://pythoniluminado.netlify.app/" target="_blank" rel="noopener noreferrer">Python Iluminado ↗</a></nav>
+    <span class="small muted">Os materiais abrem em uma nova aba.</span>
+  </footer>
   <dialog id="curriculum-dialog" class="wide-dialog" aria-labelledby="curriculum-title">
     <div class="dialog-heading"><div><p class="eyebrow">DO FUNDAMENTO À AUTONOMIA</p><h2 id="curriculum-title">Trilha de aprendizagem</h2></div><button id="close-curriculum" class="quiet" aria-label="Fechar trilha">Fechar ✕</button></div>
     <p class="muted">As unidades têm uma ordem pedagógica. Você pode abrir qualquer uma, mas o treino recomendado consolida os pré-requisitos antes de avançar.</p>
@@ -150,7 +165,7 @@
       <div><p class="eyebrow">PRÓXIMO PASSO</p><h3 id="recommendation-title">Treino recomendado</h3><p id="recommendation-text"></p></div>
       <button id="start-recommended" class="primary">Começar sessão</button>
     </section>
-    <div class="section-heading"><div><h3>Mapa de domínio</h3><p>O nível considera acertos, erros, ajuda usada e revisões.</p></div><span id="due-summary" class="tag"></span></div>
+    <div class="section-heading"><div><h3>Mapa de domínio</h3><p>O nível considera tentativas, ajuda usada e revisões espaçadas. Repetir a mesma resposta não aumenta o domínio.</p></div><span id="due-summary" class="tag"></span></div>
     <div id="skill-map" class="skill-map"></div>
     <section class="history-section"><div class="section-heading"><div><h3>Atividade recente</h3><p>As tentativas ficam somente neste navegador.</p></div></div><div id="recent-activity" class="activity-list"></div></section>
   </dialog>
@@ -168,6 +183,12 @@
       <label class="file-button">Importar backup<input id="import-data" type="file" accept="application/json,.json"></label>
       <button id="clear-data" class="danger-button">Apagar todo o progresso</button>
     </div>
+    <section id="import-preview" class="import-preview" aria-labelledby="import-preview-title" hidden>
+      <h3 id="import-preview-title">Conferir backup</h3>
+      <p id="import-summary"></p>
+      <p id="import-warning" class="small"></p>
+      <div class="import-actions"><button id="export-before-import" class="quiet">Exportar progresso atual</button><button id="confirm-import" class="primary">Importar este backup</button><button id="cancel-import" class="quiet">Cancelar</button></div>
+    </section>
     <p id="data-status" class="small muted" role="status"></p>
   </dialog>
   <dialog id="recall-dialog" aria-labelledby="recall-title">
@@ -189,7 +210,7 @@ print(nome, idade)</pre><p><code>input()</code> devolve texto. Converta antes de
 elif nota >= 5:
     print("recuperacao")
 else:
-    print("reprovado")</pre><p>Dois-pontos e recuo de 4 espaços. <code>=</code> atribui; <code>==</code> compara.</p></section>
+    print("reprovado")</pre><p>Dois-pontos e recuo de 4 espaços. <code>=</code> atribui; <code>==</code> compara igualdade; <code>&gt;=</code> significa “maior ou igual”.</p></section>
       <section><h3>Repetição</h3><pre>for n in range(1, 6):
     print(n)
 

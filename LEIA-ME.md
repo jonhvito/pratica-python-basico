@@ -2,17 +2,27 @@
 
 Abra **index.html** com dois cliques, de preferência no Chrome, Edge ou Firefox recente. Não precisa instalar nada, iniciar servidor ou executar comandos.
 
-O objetivo é construir raciocínio e recuperar a escrita de Python para uma prova no papel. Há **136 exercícios em 11 unidades**, da lógica e sintaxe até funções e depuração. Além da lista livre e do simulado, o site funciona como um treinador adaptativo local: registra tentativas, identifica padrões de erro, agenda revisões e monta sessões curtas com base no que precisa de mais atenção.
+O objetivo é aprender Python com compreensão e autonomia, sem uma data limite. Há **136 exercícios em 11 unidades**, da lógica e sintaxe até funções e depuração. Além da prática livre e dos desafios de integração, o site funciona como um treinador adaptativo local: registra tentativas, identifica padrões de erro, agenda revisões e monta sessões curtas com base no que precisa de mais atenção.
 
-## Revisão alinhada ao professor
+Na entrada, **Continuar de onde parei** retoma seu exercício, **Treino do dia** monta uma sessão curta e **Diagnóstico inicial** ajuda a identificar seu ponto de partida. Use a busca por título ou conceito e os filtros **Não tentados**, **Erros para revisar** e **Revisão pendente** para encontrar o que deseja praticar.
 
-Referência: [prdm0/curso_python](https://github.com/prdm0/curso_python), arquivo `index.qmd`, consultado em 01/10/2026. O material do professor foi usado para mapear tópicos; os novos enunciados, dados, casos e soluções foram elaborados para esta bancada.
+## Revisão e integração
 
-O botão **Revisão guiada** reúne 12 questões de recuperação ativa. **Simulado do curso** seleciona seis questões em grupos distintos: condições, strings, laços, estruturas, compreensões e funções/séries. Essa prova inclui os tópicos avançados mesmo com progresso inicial; o modo **Prova** habitual continua adaptado à trilha.
+Em **Mais formas de praticar**, o botão **Revisão de fundamentos** reúne 12 questões de recuperação ativa. **Desafio de integração** seleciona seis questões em grupos distintos: condições, strings, laços, estruturas, compreensões e funções/séries. Essa sequência inclui tópicos avançados independentemente do progresso inicial; o modo **Desafio** da barra lateral se adapta ao ponto atual da trilha. As duas opções são ferramentas de aprendizagem, com tempo livre.
 
-As 36 atividades novas cobrem identidade, tipos, `math`, formatação, palíndromos, condições de fronteira, `enumerate`, `zip`, `break`, `continue`, fatorial, primos, tuplas, desempacotamento, dicionários, médias aninhadas, conjuntos, cópias, `sort`/`sorted`, compreensões, `*args`, `**kwargs`, `lambda`, `map`, `reduce`, padrões mutáveis e séries finitas. Turtle tem uma questão conceitual; a execução gráfica requer Python local. A unidade de Listas agora reúne as quatro estruturas de dados.
+O catálogo inclui identidade, tipos, `math`, formatação, palíndromos, condições de fronteira, `enumerate`, `zip`, `break`, `continue`, fatorial, primos, tuplas, desempacotamento, dicionários, médias aninhadas, conjuntos, cópias, `sort`/`sorted`, compreensões, `*args`, `**kwargs`, `lambda`, `map`, `reduce`, padrões mutáveis e séries finitas. Turtle tem uma questão conceitual; a execução gráfica requer Python local. A unidade de Listas reúne listas, tuplas, dicionários e conjuntos.
 
-O roteiro de véspera sugere duas horas de revisão e prática no papel. Ele se baseia no conteúdo da referência, sem presumir o recorte da prova. Git, Linux, pip, ambientes virtuais e Jupyter aparecem no curso e são lembrados no roteiro, sem instalar ferramentas durante o estudo. Os títulos finais sobre recursão, closures, geradores, tratamento de erros e decoradores não têm desenvolvimento no arquivo consultado. O slide de fatorial contém um lapso para zero; aqui usamos **0! = 1**.
+Parte do mapeamento de tópicos usa como referência [prdm0/curso_python](https://github.com/prdm0/curso_python), arquivo `index.qmd`. Os 36 enunciados adicionais, seus dados, casos e soluções foram elaborados para esta bancada.
+
+## Referências para aprofundar
+
+O rodapé da aplicação mantém três materiais acessíveis em qualquer modo de estudo:
+
+- [Site do professor](https://prdm0.github.io/curso_python/#/title-slide): apresentação do curso e explicações dos tópicos.
+- [Repositório do professor no GitHub](https://github.com/prdm0/curso_python): arquivos do material usado como referência no mapeamento de tópicos.
+- [Python Iluminado](https://pythoniluminado.netlify.app/): guia complementar para consultar explicações e exemplos durante o aprendizado.
+
+Os links abrem em uma nova aba. Python Iluminado é uma referência para aprofundamento; os exercícios desta bancada têm enunciados, casos e soluções próprios.
 
 ## Trilha de fundamentos
 
@@ -26,7 +36,9 @@ O **diagnóstico inicial** apresenta uma questão curta de cada unidade. Há cin
 2. Se travar, abra a dica, a consulta rápida ou “Mostrar começo”.
 3. Verifique. Leia o erro e compare os casos de teste, especialmente zero, negativos e listas vazias.
 4. Use a solução comentada quando precisar. Depois, escolha “Refazer do zero” e escreva sem olhar.
-5. Use **Prova** para seis questões executáveis com correção só na entrega. O relógio conta o tempo, sem prazo obrigatório. Use “Imprimir prova” para resolver à mão; para a correção automática, transcreva as respostas nos campos. No treino, a impressão inclui apenas o exercício aberto.
+5. Use **Desafio** para seis questões executáveis com correção ao concluir. O relógio conta o tempo, sem prazo obrigatório. Imprima a sequência para resolver à mão e transcreva as respostas para receber a correção automática. No treino, a impressão inclui apenas o exercício aberto.
+
+O editor mostra números de linha, mantém o recuo ao pressionar Enter e permite inserir quatro espaços com Tab. Quando Python informa a linha de um erro, o editor destaca seu número. A correção de saída mostra a primeira diferença entre o esperado e o obtido, inclusive espaços e quebras de linha.
 
 ## Treino adaptativo
 
@@ -48,11 +60,15 @@ Antes de verificar, é possível registrar a confiança como “Chutei”, “Ac
 
 - **Meu aprendizado** mostra tentativas, taxa de acerto, sequência de estudo e domínio por habilidade.
 - **Caderno de erros** guarda o código que falhou, classifica o provável problema e permite voltar diretamente ao exercício.
-- Um acerto agenda a próxima revisão em intervalos crescentes de 1, 3, 7, 15 e 30 dias. Errar traz a questão de volta mais cedo.
+- Revisões espaçadas ajudam a confirmar o aprendizado. Errar traz a questão de volta mais cedo; acertos independentes permitem aumentar o intervalo.
+- Conferir a mesma resposta repetidamente não aumenta o domínio nem adia a revisão. Uma nova variação pode contribuir de forma limitada; recuperar a solução depois de algum tempo traz evidência mais forte de aprendizado.
 - Abrir dica, solução, consulta rápida ou começo sugerido marca aquela tentativa como feita com apoio.
+- Tentativas com apoio contribuem menos para o domínio. Os níveis mais altos dependem de respostas independentes.
 - Nos testes de mesa há uma tabela opcional para registrar linha, variáveis e saída antes da resposta final.
 
-O simulado seleciona seis exercícios de programação compatíveis com o ponto atual da trilha. Rascunhos, histórico, revisões e resultados são guardados no navegador, inclusive ao trocar de exercício. Treino livre, sessão adaptativa e simulado têm respostas separadas. Não há conta nem sincronização entre dispositivos. Use **Dados → Exportar backup** para gerar um arquivo JSON e **Importar backup** no outro navegador. Em navegação privada, ao mudar a pasta de lugar ou limpar os dados do navegador, o progresso pode deixar de estar disponível.
+O desafio seleciona seis exercícios de programação compatíveis com o ponto atual da trilha. Rascunhos, histórico, revisões e resultados são guardados no navegador, inclusive ao trocar de exercício. Treino livre, sessão adaptativa e desafio têm respostas separadas. Não há conta nem sincronização entre dispositivos. Em navegação privada, ao mudar a pasta de lugar ou limpar os dados do navegador, o progresso pode deixar de estar disponível.
+
+Use **Dados → Exportar backup** para gerar um arquivo JSON e **Importar backup** no outro navegador. Antes de importar, a aplicação valida a versão e o conteúdo e apresenta um resumo. A importação substitui o progresso atual; nessa etapa, é possível exportar uma cópia do que já está no navegador ou cancelar.
 
 ## Correção
 
@@ -60,25 +76,28 @@ O simulado seleciona seis exercícios de programação compatíveis com o ponto 
 - Funções recebem argumentos e são verificadas pelo valor retornado. `print()` não substitui `return`.
 - Testes de mesa comparam a saída escrita e funcionam sem internet. Use uma linha para cada `print()`.
 - Espaços no fim das linhas e quebras de linha finais não interferem. As demais diferenças de texto contam. Médias aceitam diferenças mínimas de ponto flutuante.
+- As dicas sobre possíveis causas de um resultado incorreto são hipóteses. Compare-as com a entrada, a saída esperada e a diferença apresentada antes de alterar o programa.
 - Regras como “use for” e “sem sum()” têm uma checagem simples da estrutura do código. Isso ajuda no treino, mas não é uma fiscalização completa de todas as soluções possíveis. Passar nos casos não prova que o código funciona para toda entrada imaginável.
 - Cada caso começa com um novo ambiente de variáveis. A execução fica em uma tarefa separada do navegador, com botão para parar e limite de quatro segundos por exercício. Interromper um laço exige recarregar o interpretador na próxima verificação.
 
 ## Arquivos e internet
 
-HTML, CSS e JavaScript puro, sem framework, build, backend, gerenciador de pacotes, fontes externas ou cadastro. Tudo da versão nova está nesta pasta; o original não foi alterado.
+HTML, CSS e JavaScript puro, sem framework, build, backend, gerenciador de pacotes, fontes externas ou cadastro.
 
 - `index.html`: estrutura da página e consulta rápida.
 - `styles.css`: estilos, versão para celular e impressão.
 - `exercicios.js`: enunciados, casos de teste, dicas e soluções.
 - `curriculo.js`: unidades, pré-requisitos e catálogo de 100 atividades de fundamentos.
-- `professor.js`: 36 atividades adicionais e os grupos da revisão e do simulado do curso.
+- `professor.js`: 36 atividades adicionais e os grupos da revisão de fundamentos e do desafio de integração.
 - `aprendizagem.js`: habilidades, variações, desafios e diagnóstico pedagógico.
-- `treinador.js`: estado local, sessões, revisão, navegação, painéis, backup, simulado e impressão.
-- `python.js`: correção com Python real, usando o mesmo Pyodide 0.26.4 da versão original. A execução em uma tarefa separada segue a [documentação do Pyodide](https://pyodide.org/en/0.26.4/usage/webworker.html).
+- `progresso.js`: validação dos dados e regras de evidência para o progresso de aprendizagem.
+- `editor.js`: recuo automático, números de linha, indicação de erro e comparação de saídas.
+- `treinador.js`: estado local, sessões, revisão, navegação, painéis, backup, desafios e impressão.
+- `python.js`: correção com Python real, usando Pyodide 0.26.4. A execução em uma tarefa separada segue a [documentação do Pyodide](https://pyodide.org/en/0.26.4/usage/webworker.html).
 - `manifest.webmanifest`, `service-worker.js` e `icone.svg`: instalação e cache da interface no GitHub Pages.
 
 A **correção de código precisa de internet** para carregar o interpretador do CDN jsDelivr. No GitHub Pages, a interface pode ser instalada e seus arquivos locais são armazenados para uso offline; o carregamento do Python ainda depende do cache do navegador/CDN. Enunciados, sessões, histórico, caderno, dicas, soluções, impressão e testes de mesa são locais. A página não envia rascunhos ou histórico a um serviço: o Python roda no navegador.
 
 ## Verificação opcional para desenvolvimento
 
-A pasta `verificacao` contém um script sem dependências para testar a página em Chrome/Edge oculto, com Node 22 ou superior: execute `node pratica-python-basico/verificacao/verificar.cjs` a partir da pasta que contém esta versão. Ele testa o currículo, todos os formatos, todas as soluções executáveis, salvamento, diagnóstico, erros, interrupção, simulado, impressão e recarga offline, e gera capturas e PDF em `verificacao/artefatos`. Nada disso é necessário para estudar: basta abrir `index.html`.
+A pasta `verificacao` contém um script sem dependências para testar a página em Chrome/Edge oculto, com Node 22 ou superior: execute `node verificacao/verificar.cjs` a partir desta pasta. Ele testa o currículo, todos os formatos, todas as soluções executáveis, salvamento, diagnóstico, erros, interrupção, desafios, impressão e recarga offline, e gera capturas e PDF em `verificacao/artefatos`. Nada disso é necessário para estudar: basta abrir `index.html`.

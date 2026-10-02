@@ -22,11 +22,13 @@ jobs:
         run: |
           for file in *.js; do node --check "$file"; done
           node verificacao/conteudo.cjs
+          node verificacao/progresso.cjs
+          node verificacao/editor.cjs
       - uses: actions/configure-pages@v5
       - name: Preparar arquivos públicos
         run: |
           mkdir _site
-          cp index.html styles.css exercicios.js curriculo.js professor.js python.js aprendizagem.js treinador.js manifest.webmanifest icone.svg service-worker.js .nojekyll _site/
+          cp index.html styles.css exercicios.js curriculo.js professor.js python.js aprendizagem.js progresso.js editor.js treinador.js manifest.webmanifest icone.svg service-worker.js .nojekyll _site/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

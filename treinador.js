@@ -13,7 +13,7 @@
     fade: ["Completar o código", "Algumas linhas desapareceram. Reconstrua o raciocínio."],
     bug: ["Caça ao bug", "O código está quase certo. Encontre a falha antes de reescrever tudo."],
     recall: ["Reconstrução", "Observe uma solução por alguns segundos e reescreva de memória."],
-    paper: ["No papel", "Resolva como na prova e transcreva somente quando terminar."]
+    paper: ["No papel", "Resolva longe da tela e transcreva somente quando terminar."]
   };
   const errorTips = {
     SyntaxError: "Confira dois-pontos, parênteses, aspas e == nas comparações.",
@@ -36,14 +36,22 @@
   let paperStartedAt = null;
   let recallTimer = null;
   let unitFilter = "all";
+  let searchQuery = "";
+  let statusFilter = "all";
+  let pendingImport = null;
+  let importRequest = 0;
   let state = loadState();
+  const codeEditor = window.CodeEditor.attach($("answer"), { gutter: $("line-numbers"), status: $("editor-status") });
+
+  function newRoundId() { return globalThis.crypto?.randomUUID?.() || Date.now() + "-" + Math.random().toString(36).slice(2); }
+  function setMode(value) { mode = value; state.lastMode = value; }
 
   function emptyLearning() {
     return { records: {}, attempts: [], mistakes: [], sessions: [], streak: { days: 0, lastDate: null } };
   }
 
   function initialState() {
-    return { version: 4, activeId: exercises[0].id, drafts: {}, exam: null, coach: null, learning: emptyLearning() };
+    return { version: 4, lastMode: "practice", activeId: exercises[0].id, drafts: {}, exam: null, coach: null, learning: emptyLearning() };
   }
 
   function validResult(result) {
@@ -60,6 +68,7 @@
       format: formats[value?.format] ? value.format : "write",
       variantSeed: Number.isInteger(value?.variantSeed) && value.variantSeed >= 0 ? value.variantSeed : 0,
       roundAttempts: Number.isInteger(value?.roundAttempts) ? value.roundAttempts : 0,
+      roundId: typeof value?.roundId === "string" && value.roundId ? value.roundId : newRoundId(),
       challengeKey: typeof value?.challengeKey === "string" ? value.challengeKey : "",
       paperTranscribing: !!value?.paperTranscribing,
       traceRows: Array.isArray(value?.traceRows) ? value.traceRows.slice(0, 30) : []
@@ -118,7 +127,9 @@
       formats: Object.fromEntries(ids.map(id => [id, formats[coach.formats?.[id]] ? coach.formats[id] : "write"])),
       variants: Object.fromEntries(ids.map(id => [id, Number.isInteger(coach.variants?.[id]) ? coach.variants[id] : 0])),
       prepared: Object.fromEntries(ids.map(id => [id, typeof coach.prepared?.[id] === "string" ? coach.prepared[id] : ""])),
-      paperTranscribing: Object.fromEntries(ids.map(id => [id, !!coach.paperTranscribing?.[id]]))
+      paperTranscribing: Object.fromEntries(ids.map(id => [id, !!coach.paperTranscribing?.[id]])),
+      roundIds: Object.fromEntries(ids.map(id => [id, typeof coach.roundIds?.[id] === "string" ? coach.roundIds[id] : newRoundId()])),
+      roundAttempts: Object.fromEntries(ids.map(id => [id, Number.isInteger(coach.roundAttempts?.[id]) && coach.roundAttempts[id] >= 0 ? coach.roundAttempts[id] : 0]))
     };
   }
 
@@ -128,10 +139,29 @@
       const saved = JSON.parse(localStorage.getItem(storageKey));
       if (!saved || typeof saved !== "object") return fresh;
       if (byId.has(saved.activeId)) fresh.activeId = saved.activeId;
+      if (["practice", "coach", "exam"].includes(saved.lastMode)) fresh.lastMode = saved.lastMode;
       for (const exercise of exercises) fresh.drafts[exercise.id] = normalizeDraft(saved.drafts?.[exercise.id]);
       fresh.exam = normalizeExam(saved.exam);
       fresh.coach = normalizeCoach(saved.coach);
       fresh.learning = normalizeLearning(saved.learning);
+      const preserveSolvedRound = (id, result, roundId, variantSeed, helped) => {
+        const record = fresh.learning.records[id];
+        if (!result?.pass || !record) return;
+        const exercise = engine.materialize(byId.get(id), variantSeed);
+        fresh.learning.records[id] = window.PROGRESS_ENGINE.seedCompletedRound(record, {
+          roundId, variantSeed: exerciseSignature(exercise), helped: result.learning?.helped ?? helped, now: Date.now()
+        });
+      };
+      for (const exercise of exercises) {
+        const item = fresh.drafts[exercise.id];
+        preserveSolvedRound(exercise.id, item.result, item.roundId, item.variantSeed, item.helped || ["fade", "bug", "recall"].includes(item.format));
+      }
+      if (fresh.coach) for (const id of fresh.coach.ids) {
+        preserveSolvedRound(id, fresh.coach.results[id], fresh.coach.roundIds[id], fresh.coach.variants[id], fresh.coach.helped[id] || ["fade", "bug", "recall"].includes(fresh.coach.formats[id]));
+      }
+      if (fresh.exam) for (const id of fresh.exam.ids) {
+        preserveSolvedRound(id, fresh.exam.results[id], "exam-" + fresh.exam.startedAt + "-" + id, fresh.exam.variants[id], false);
+      }
       return fresh;
     } catch (_) {
       storageAvailable = false;
@@ -157,7 +187,6 @@
     return node;
   }
 
-  function clamp(value, minimum, maximum) { return Math.max(minimum, Math.min(maximum, value)); }
   function normal(text) { return text.replace(/\r\n/g, "\n").split("\n").map(line => line.trimEnd()).join("\n").replace(/\n+$/, ""); }
   function dateKey(timestamp = Date.now()) { return new Date(timestamp).toLocaleDateString("sv-SE"); }
   function formatDate(timestamp) { return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(new Date(timestamp)); }
@@ -184,7 +213,65 @@
   function currentList() {
     if (mode === "exam") return state.exam.ids.map(id => byId.get(id));
     if (mode === "coach") return state.coach.ids.map(id => byId.get(id));
-    return unitFilter === "all" ? exercises : exercises.filter(exercise => exercise.unit === unitFilter);
+    const query = searchText(searchQuery.trim());
+    const now = Date.now();
+    return exercises.filter(exercise => {
+      if (unitFilter !== "all" && exercise.unit !== unitFilter) return false;
+      const record = recordFor(exercise.id);
+      if (statusFilter === "unseen" && record.attempts) return false;
+      if (statusFilter === "mistakes" && !state.learning.mistakes.some(item => item.exerciseId === exercise.id && !item.resolvedAt)) return false;
+      if (statusFilter === "due" && !(record.attempts && record.dueAt && record.dueAt <= now)) return false;
+      if (!query) return true;
+      const unit = curriculum.unitById[exercise.unit];
+      const skills = engine.skillsFor(exercise.id).map(id => engine.skills.find(skill => skill.id === id)?.name || id);
+      return searchText([exercise.title, exercise.prompt, unit.title, ...unit.concepts, ...skills].join(" ")).includes(query);
+    });
+  }
+
+  function searchText(value) { return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR"); }
+
+  function clearExerciseFilters() {
+    unitFilter = "all"; searchQuery = ""; statusFilter = "all";
+    $("unit-filter").value = "all"; $("exercise-search").value = ""; $("exercise-status-filter").value = "all";
+  }
+
+  function applyExerciseFilters() {
+    if (busy || mode !== "practice") return;
+    const list = currentList();
+    if (list.length && !list.some(exercise => exercise.id === state.activeId)) navigate(list[0].id, false);
+    else { save(); render(); }
+  }
+
+  function renderContinueStudy() {
+    const savedMode = state.lastMode;
+    const resumeCoach = savedMode === "coach" && state.coach && !state.coach.finishedAt;
+    const resumeExam = savedMode === "exam" && state.exam && !state.exam.finishedAt;
+    const id = resumeCoach ? state.coach.activeId : resumeExam ? state.exam.activeId : state.activeId;
+    const hasActivity = state.learning.attempts.length || Object.values(state.drafts).some(item => item.code.trim()) || resumeCoach || resumeExam;
+    $("continue-study-button").textContent = hasActivity ? "Continuar de onde parei" : "Começar a aprender";
+    $("continue-study-text").textContent = hasActivity
+      ? (resumeCoach ? "Sua sessão está guardada: " : resumeExam ? "Seu desafio está guardado: " : "Último exercício: ") + byId.get(id).title + "."
+      : "Comece pelos fundamentos ou faça o diagnóstico para encontrar seu ponto de partida.";
+  }
+
+  function continueStudy() {
+    if (busy) return;
+    if (state.lastMode === "coach" && state.coach && !state.coach.finishedAt) setMode("coach");
+    else if (state.lastMode === "exam" && state.exam && !state.exam.finishedAt) setMode("exam");
+    else { setMode("practice"); clearExerciseFilters(); }
+    prepareCurrentChallenge(); save(); render();
+    $("exercise-title").focus();
+  }
+
+  function roundIdFor(id) {
+    if (mode === "exam") return "exam-" + state.exam.startedAt + "-" + id;
+    if (mode === "coach") return state.coach.roundIds[id];
+    return draft(id).roundId;
+  }
+
+  function restartRound(id) {
+    if (mode === "coach") { state.coach.roundIds[id] = newRoundId(); state.coach.roundAttempts[id] = 0; state.coach.helped[id] = false; }
+    else { draft(id).roundId = newRoundId(); draft(id).roundAttempts = 0; draft(id).helped = false; }
   }
 
   function variantSeedFor(id) {
@@ -221,7 +308,10 @@
     else draft(id).result = result;
   }
 
-  function helpedFor(id) { return mode === "coach" ? state.coach.helped[id] : draft(id).helped; }
+  function helpedFor(id) {
+    if (mode === "exam") return false;
+    return (mode === "coach" ? state.coach.helped[id] : draft(id).helped) || ["fade", "bug", "recall"].includes(formatFor(id));
+  }
   function markHelp() {
     if (mode === "exam") return;
     if (mode === "coach") state.coach.helped[activeId()] = true;
@@ -231,6 +321,7 @@
   }
   function confidenceFor(id) { return mode === "coach" ? state.coach.confidence[id] : draft(id).confidence; }
   function setConfidence(value) {
+    if (busy) return;
     if (mode === "coach") state.coach.confidence[activeId()] = value;
     else draft(activeId()).confidence = value;
     save(); renderConfidence();
@@ -269,24 +360,16 @@
     const confidence = options.confidence || null;
     const pass = !!result.pass;
     const firstTry = (options.roundAttempts || 0) === 0;
-    record.attempts += 1;
-    record.lastAt = timestamp;
+    const variantKey = exerciseSignature(exercise);
+    const updated = window.PROGRESS_ENGINE.applyAttempt(record, {
+      pass, helped, firstTry, variantSeed: variantKey, roundId: options.roundId || roundIdFor(exercise.id), now: timestamp
+    });
+    Object.assign(record, updated);
     if (pass) {
-      record.passes += 1;
-      if (helped) record.helpedPasses += 1;
-      record.streak = helped ? Math.max(1, record.streak) : record.streak + 1;
-      record.interval = helped ? Math.min(record.interval, 1) : Math.min(record.interval + 1, 5);
-      const intervals = [1, 1, 3, 7, 15, 30];
-      record.dueAt = timestamp + intervals[record.interval] * day;
-      record.mastery = clamp(record.mastery + (helped ? 7 : firstTry ? 19 : 12), 0, 100);
-      if (!helped) state.learning.mistakes.forEach(item => {
+      if (!helped && updated.credit) state.learning.mistakes.forEach(item => {
         if (item.exerciseId === exercise.id && !item.resolvedAt) item.resolvedAt = timestamp;
       });
     } else {
-      record.streak = 0;
-      record.interval = 0;
-      record.dueAt = timestamp + 15 * 60 * 1000;
-      record.mastery = clamp(record.mastery - 7, 0, 100);
       const diagnosed = engine.diagnosis(result, exercise, code);
       state.learning.mistakes.push({
         id: timestamp + "-" + exercise.id,
@@ -303,12 +386,20 @@
       state.learning.mistakes = state.learning.mistakes.slice(-120);
       result.learningDiagnosis = diagnosed;
     }
-    result.learning = { mastery: record.mastery, dueAt: record.dueAt, firstTry, helped, confidence };
-    state.learning.attempts.push({ exerciseId: exercise.id, title: exercise.title, pass, helped, confidence, source: options.source || mode, mastery: record.mastery, at: timestamp });
+    const creditMessages = {
+      "round-completed": "Esta tentativa já foi concluída. Verificar novamente não aumenta o domínio nem adia a revisão.",
+      "variant-already-practiced-today": "Você já praticou esta variação hoje. Retome na revisão agendada para testar a memória após um intervalo.",
+      "daily-practice-limit": "O ganho de domínio de hoje já foi registrado. Você pode continuar praticando; a revisão mantém a data prevista.",
+      "assisted-practice": "A tentativa usou apoio. Uma revisão sem consulta vai ajudar a demonstrar autonomia."
+    };
+    result.learning = { mastery: record.mastery, dueAt: record.dueAt, firstTry, helped, confidence, credit: updated.credit, reason: creditMessages[updated.reason] || "A prática ficou registrada; o domínio e a revisão foram mantidos." };
+    state.learning.attempts.push({ exerciseId: exercise.id, title: exercise.title, pass, helped, confidence, source: options.source || mode, mastery: record.mastery, credit: updated.credit, reason: updated.reason, roundId: options.roundId || roundIdFor(exercise.id), at: timestamp });
     state.learning.attempts = state.learning.attempts.slice(-400);
     updateStudyStreak(timestamp);
     return record;
   }
+
+  function exerciseSignature(exercise) { return JSON.stringify({ kind: exercise.kind, cases: exercise.cases, answer: exercise.answer }); }
 
   function masteryStatus(value) {
     if (value >= 80) return "Consolidado";
@@ -406,20 +497,28 @@
   }
 
   function startCoach(force = false) {
+    if (busy) return;
+    if (!force && state.coach && !state.coach.finishedAt && state.coach.type !== "adaptive" && !canReplaceCoach()) return;
     if (force || !state.coach || state.coach.finishedAt || state.coach.type !== "adaptive") buildCoachSession();
-    mode = "coach";
+    setMode("coach");
     prepareCurrentChallenge();
     save(); render();
   }
 
   function startUnit(unitId) {
+    if (busy || !canReplaceCoach()) return;
     buildCoachSession({ unitId });
-    mode = "coach"; prepareCurrentChallenge(); save(); render();
+    setMode("coach"); prepareCurrentChallenge(); save(); render();
   }
 
   function startDiagnostic() {
+    if (busy || !canReplaceCoach()) return;
     buildCoachSession({ diagnostic: true });
-    mode = "coach"; prepareCurrentChallenge(); save(); render();
+    setMode("coach"); prepareCurrentChallenge(); save(); render();
+  }
+
+  function canReplaceCoach() {
+    return !state.coach || !!state.coach.finishedAt || !Object.values(state.coach.answers).some(answer => answer.trim()) || window.confirm("Iniciar outra sessão substituirá as respostas da sessão em andamento. Continuar?");
   }
 
   function finishCoachIfNeeded() {
@@ -432,6 +531,7 @@
   }
 
   function nextCoachItem() {
+    if (busy) return;
     const currentIndex = state.coach.ids.indexOf(activeId());
     const order = [...state.coach.ids.slice(currentIndex + 1), ...state.coach.ids.slice(0, currentIndex + 1)];
     const next = order.find(id => !state.coach.results[id]?.pass);
@@ -446,6 +546,7 @@
     else if (mode === "practice") draft(exercise.id).result = null;
     save();
     $("feedback").hidden = true;
+    codeEditor.sync({ codeMode: ["program", "function"].includes(exercise.kind), errorLine: null });
     renderNavigation(); renderState();
   }
 
@@ -454,7 +555,7 @@
     const result = resultFor(exercise.id);
     let label = answerFor(exercise.id).trim() ? "Em andamento" : "Para tentar";
     if (mode === "exam" && !state.exam.finishedAt) label = answerFor(exercise.id).trim() ? "Resposta guardada" : "Em branco";
-    else if (result?.pass) label = helpedFor(exercise.id) ? "Resolvido com apoio" : "Resolvido";
+    else if (result?.pass) label = (result.learning?.helped ?? helpedFor(exercise.id)) ? "Resolvido com apoio" : "Resolvido";
     else if (result) label = "Para revisar";
     $("exercise-state").textContent = label;
     $("exercise-state").className = "tag" + (result?.pass ? " success" : result ? " warning" : "");
@@ -483,6 +584,7 @@
       nav.append(button);
     });
     nav.scrollTop = scrollPosition;
+    $("exercise-empty").hidden = mode !== "practice" || list.length > 0;
     const selected = nav.querySelector('[aria-current="true"]');
     if (selected) {
       const navBounds = nav.getBoundingClientRect();
@@ -497,7 +599,7 @@
     $("progress").setAttribute("aria-label", $("progress-label").textContent);
   }
 
-  function navigate(id) {
+  function navigate(id, focus = true) {
     if (busy) return;
     if (mode === "exam") state.exam.activeId = id;
     else if (mode === "coach") state.coach.activeId = id;
@@ -505,7 +607,7 @@
     paperStartedAt = null;
     prepareCurrentChallenge();
     save(); render();
-    $("exercise-title").focus({ preventScroll: true });
+    if (focus) $("exercise-title").focus({ preventScroll: true });
   }
 
   function renderExample(exercise) {
@@ -522,6 +624,7 @@
   }
 
   function selectChoice(value) {
+    if (busy) return;
     setAnswer(activeId(), value); setResult(activeId(), null); save(); renderChoice(currentExercise()); renderNavigation(); renderState();
   }
 
@@ -548,6 +651,7 @@
   }
 
   function moveOrderLine(index, direction) {
+    if (busy) return;
     const exercise = currentExercise(); const lines = orderValues(exercise); const target = index + direction;
     if (target < 0 || target >= lines.length) return;
     [lines[index], lines[target]] = [lines[target], lines[index]];
@@ -629,6 +733,7 @@
   }
 
   function applyFormat(format, userInitiated = true) {
+    if (busy) return;
     const exercise = baseExercise();
     if (["choice", "order"].includes(exercise.kind)) return;
     if (exercise.kind === "trace" && format !== "write") {
@@ -702,13 +807,13 @@
     const done = state.coach.ids.filter(id => state.coach.results[id]?.pass).length;
     const complete = done === state.coach.ids.length;
     const unit = state.coach.unitId ? curriculum.unitById[state.coach.unitId] : null;
-    const sessionName = state.coach.type === "course" ? "Revisão do curso" : state.coach.type === "diagnostic" ? "Diagnóstico da trilha" : unit ? "Treino · " + unit.short : "Seu treino do dia";
+    const sessionName = state.coach.type === "course" ? "Revisão de fundamentos" : state.coach.type === "diagnostic" ? "Diagnóstico da trilha" : unit ? "Treino · " + unit.short : "Seu treino do dia";
     $("coach-title").textContent = complete ? sessionName + " concluído" : sessionName;
     if (complete) $("coach-description").textContent = state.coach.type === "diagnostic"
       ? "Diagnóstico concluído. O mapa da trilha agora usa seus resultados para indicar por onde continuar."
       : "Você fechou a sequência. As revisões futuras já foram agendadas.";
     else if (state.coach.type === "diagnostic") $("coach-description").textContent = "Uma questão curta de cada unidade, sem bloquear nenhum conteúdo.";
-    else if (state.coach.type === "course") $("coach-description").textContent = "12 questões sobre estruturas, laços e funções presentes na referência do professor.";
+    else if (state.coach.type === "course") $("coach-description").textContent = "12 questões para conectar estruturas, laços e funções e identificar o que merece mais prática.";
     else if (unit) $("coach-description").textContent = unit.description;
     else $("coach-description").textContent = "Questão atual: " + recommendationReason(baseExercise()) + ".";
     $("coach-progress").textContent = done + " de " + state.coach.ids.length;
@@ -739,22 +844,24 @@
     $("answer").value = answerFor(exercise.id);
     $("answer").placeholder = exercise.kind === "trace" ? "Escreva a saída, uma linha por vez…" : "Comece aqui, de memória…";
     $("answer").disabled = busy || submitted;
-    $("editor-help").textContent = exam ? "Use 4 espaços para cada recuo. A correção aparece depois de entregar." : "Tab = 4 espaços · Esc e depois Tab = sair do campo · Ctrl+Enter = verificar";
+    $("editor-help").textContent = exercise.kind === "trace" ? "Escreva uma linha para cada saída prevista · Ctrl+Enter = verificar" : exam ? "Enter mantém o recuo · Use 4 espaços por bloco · A correção aparece ao concluir." : "Tab = 4 espaços · Enter mantém o recuo · Esc e depois Tab = sair do campo · Ctrl+Enter = verificar";
     renderFormats(exercise); renderConfidence(); renderTraceRows(exercise);
     $("runtime-status").hidden = ["choice", "order"].includes(exercise.kind);
     $("unit-filter").disabled = mode !== "practice";
+    $("exercise-search").disabled = busy || mode !== "practice";
+    $("exercise-status-filter").disabled = busy || mode !== "practice";
     $("check-button").hidden = exam; $("skeleton-button").hidden = exam || !["program", "function"].includes(exercise.kind) || formatFor(exercise.id) !== "write";
     $("retry-button").hidden = exam; $("new-variant").hidden = exam || !["program", "function"].includes(exercise.kind) || engine.materialize(exercise, 1) === exercise;
     $("study-tools").hidden = exam && !submitted;
     $("hint-details").open = false; $("solution-details").open = false;
     $("hint-text").textContent = exercise.hint; $("solution-code").textContent = exercise.solution; $("solution-note").textContent = exercise.note;
     $("reference-button").disabled = busy || (exam && !submitted);
-    $("print-button").textContent = exam ? "Imprimir prova" : "Imprimir exercício";
-    $("position").textContent = (index + 1) + " de " + list.length;
-    $("previous-button").disabled = busy || index === 0; $("next-button").disabled = busy || index === list.length - 1;
+    $("print-button").textContent = exam ? "Imprimir desafio" : "Imprimir exercício";
+    $("position").textContent = index < 0 ? "Exercício aberto fora do filtro" : (index + 1) + " de " + list.length;
+    $("previous-button").disabled = busy || index <= 0; $("next-button").disabled = busy || index < 0 || index === list.length - 1;
     $("finish-exam").hidden = submitted;
     if (exam) {
-      $("exam-title").textContent = submitted ? "Simulado corrigido" : state.exam.course ? "Simulado do curso · 6 questões" : "Simulado de 6 questões";
+      $("exam-title").textContent = submitted ? "Simulado corrigido" : state.exam.course ? "Desafio de integração · 6 questões" : "Simulado de 6 questões";
       $("exam-description").textContent = submitted ? "Abra as questões para ver os testes e as soluções. O tempo abaixo é o total até a entrega." : "Sem dicas e sem correção entre questões. O relógio mede seu tempo; não há limite.";
       $("exam-summary").hidden = !submitted;
       if (submitted) {
@@ -762,7 +869,7 @@
         $("exam-summary").textContent = count + "/6 questões corretas. " + (count === 6 ? "Agora repita no papel, sem consultar." : "As dificuldades também entraram no seu treino recomendado.");
       }
     }
-    renderNavigation(); renderState(); renderFeedback(resultFor(exercise.id), exercise); updateClocks(); updateMistakeBadge();
+    renderNavigation(); renderState(); renderFeedback(resultFor(exercise.id), exercise); updateClocks(); updateMistakeBadge(); renderContinueStudy();
   }
 
   function appendError(container, error) {
@@ -773,6 +880,8 @@
 
   function renderFeedback(result, exercise) {
     const container = $("feedback"); container.replaceChildren(); container.hidden = !result;
+    const errorLine = result?.error?.line || result?.cases?.find(item => !item.pass && item.error?.line)?.error.line || null;
+    codeEditor.sync({ codeMode: ["program", "function"].includes(exercise.kind), errorLine });
     if (!result) return;
     container.append(element("h3", result.pass ? "Passou. Agora tente repetir de memória." : "Ainda tem algo para ajustar.", result.pass ? "success-text" : "error-text"));
     if (result.error) appendError(container, result.error);
@@ -789,7 +898,7 @@
       }
       if (item.error) appendError(details, item.error);
       else {
-        details.append(element("pre", "Esperado:\n" + item.expected + "\n\nObtido:\n" + (item.got === "" ? "(saída vazia)" : item.got)));
+        details.append(window.CodeEditor.comparison(item.expected, item.got));
         if (item.got === "None" && !item.pass && exercise.kind === "function") details.append(element("p", "A função devolveu None. Faltou return? print() não devolve o resultado."));
         if (item.changed) details.append(element("p", "A lista recebida foi alterada. Crie outra lista para devolver."));
         if (item.stdout) details.append(element("pre", "Seu print mostrou (não é o retorno):\n" + item.stdout));
@@ -798,19 +907,27 @@
     });
     if (!result.pass && result.learningDiagnosis) {
       const insight = element("section", undefined, "feedback-insight");
-      insight.append(element("strong", result.learningDiagnosis.title), element("p", result.learningDiagnosis.tip)); container.append(insight);
+      insight.append(element("strong", result.learningDiagnosis.title), element("p", result.learningDiagnosis.tip));
+      if (result.learningDiagnosis.detail) insight.append(element("p", result.learningDiagnosis.detail, "small muted"));
+      container.append(insight);
     }
     if (result.learning) {
-      if (result.pass) container.append(element("p", "Domínio deste exercício: " + result.learning.mastery + "% · próxima revisão em " + formatDate(result.learning.dueAt) + ".", "learning-note"));
+      if (result.pass) container.append(element("p", "Domínio deste exercício: " + result.learning.mastery + "%" + (result.learning.dueAt ? " · próxima revisão em " + formatDate(result.learning.dueAt) : "") + ".", "learning-note"));
+      if (result.pass && result.learning.credit === false) container.append(element("p", result.learning.reason, "learning-note"));
       if (result.learning.confidence === 3 && !result.pass) container.append(element("p", "Você marcou “tenho certeza”, mas o teste falhou. Ótimo sinal para revisar: havia uma falsa sensação de domínio.", "calibration-note"));
       if (result.learning.confidence === 1 && result.pass) container.append(element("p", "Você acertou mesmo inseguro. Sua compreensão está à frente da sua confiança.", "calibration-note"));
     }
-    if (result.pass && helpedFor(exercise.id)) container.append(element("p", "Você usou apoio nesta tentativa. Refazer sem consulta consolida melhor."));
+    if (result.pass && (result.learning?.helped ?? helpedFor(exercise.id))) container.append(element("p", "Você usou apoio nesta tentativa. Refazer sem consulta consolida melhor."));
   }
 
   function setBusy(value) {
     busy = value;
-    ["check-button", "skeleton-button", "retry-button", "new-variant", "practice-mode", "coach-mode", "exam-mode", "finish-exam", "new-exam", "print-button", "new-coach"].forEach(id => { if ($(id)) $(id).disabled = value; });
+    ["check-button", "skeleton-button", "retry-button", "new-variant", "practice-mode", "coach-mode", "exam-mode", "finish-exam", "new-exam", "print-button", "new-coach", "continue-study-button", "daily-study-button", "diagnostic-study-button", "course-review-button", "course-exam-button", "clear-exercise-filters", "curriculum-button", "learning-button", "mistakes-button", "finish-coach-item", "clear-data", "confirm-import", "add-trace-row", "paper-transcribe"].forEach(id => { if ($(id)) $(id).disabled = value; });
+    document.querySelectorAll(".format-button, [data-confidence], .choice-option, #order-lines button").forEach(button => { button.disabled = value; });
+    if (!value) { renderFormats(currentExercise()); renderOrder(currentExercise()); }
+    $("unit-filter").disabled = value || mode !== "practice";
+    $("exercise-search").disabled = value || mode !== "practice";
+    $("exercise-status-filter").disabled = value || mode !== "practice";
     $("stop-button").hidden = !value; $("answer").disabled = value || (mode === "exam" && !!state.exam.finishedAt);
     $("reference-button").disabled = value || (mode === "exam" && !state.exam.finishedAt);
     renderNavigation();
@@ -838,15 +955,21 @@
   async function checkAnswer() {
     if (busy || mode === "exam") return;
     const exercise = currentExercise(); const code = answerFor(exercise.id);
+    const submittedMode = mode;
+    const submission = {
+      source: mode, roundId: roundIdFor(exercise.id), helped: helpedFor(exercise.id), confidence: confidenceFor(exercise.id),
+      roundAttempts: mode === "practice" ? draft(exercise.id).roundAttempts : state.coach.roundAttempts[exercise.id]
+    };
     setBusy(true); $("check-button").textContent = "Verificando…"; $("feedback").hidden = true;
     try {
       const result = await grade(exercise, code);
-      const roundAttempts = mode === "practice" ? draft(exercise.id).roundAttempts : state.learning.attempts.filter(item => item.source === "coach" && item.exerciseId === exercise.id && item.at >= state.coach.startedAt).length;
-      recordAttempt(exercise, result, code, { source: mode, helped: helpedFor(exercise.id), confidence: confidenceFor(exercise.id), roundAttempts });
+      if (mode !== submittedMode || activeId() !== exercise.id || roundIdFor(exercise.id) !== submission.roundId) throw new Error("A resposta mudou durante a correção. Verifique novamente para corrigir a tentativa atual.");
+      recordAttempt(exercise, result, code, { ...submission, helped: submission.helped || helpedFor(exercise.id) });
       setResult(exercise.id, result);
       if (mode === "practice") draft(exercise.id).roundAttempts += 1;
+      else state.coach.roundAttempts[exercise.id] += 1;
       if (mode === "coach") finishCoachIfNeeded();
-      save(); renderFeedback(result, exercise);
+      save(); renderFeedback(result, exercise); renderContinueStudy();
     } catch (error) {
       $("feedback").replaceChildren(element("p", error.message, "error-text")); $("feedback").hidden = false;
     } finally {
@@ -855,6 +978,7 @@
   }
 
   function createExam(course = false) {
+    if (busy) return;
     const codeExercises = exercises.filter(exercise => ["program", "function"].includes(exercise.kind));
     const focusOrder = focusUnit().order;
     const visibleOrder = Math.max(5, focusOrder + 2);
@@ -886,7 +1010,7 @@
         const exercise = engine.materialize(byId.get(id), state.exam.variants[id]);
         const result = await grade(exercise, state.exam.answers[id]);
         state.exam.results[id] = result;
-        recordAttempt(exercise, result, state.exam.answers[id], { source: "exam", helped: false, confidence: null, roundAttempts: 0 });
+        recordAttempt(exercise, result, state.exam.answers[id], { source: "exam", helped: false, confidence: null, roundAttempts: 0, roundId: "exam-" + state.exam.startedAt + "-" + id });
       }
       state.exam.finishedAt = submittedAt; save(); render();
     } catch (error) {
@@ -931,9 +1055,11 @@
   }
 
   function openUnit(unitId) {
+    if (busy) return;
     unitFilter = unitId;
     $("unit-filter").value = unitId;
-    mode = "practice";
+    setMode("practice");
+    searchQuery = ""; statusFilter = "all"; $("exercise-search").value = ""; $("exercise-status-filter").value = "all";
     const first = exercises.find(exercise => exercise.unit === unitId);
     if (first) state.activeId = first.id;
     if ($("curriculum-dialog").open) $("curriculum-dialog").close();
@@ -1034,7 +1160,7 @@
       details.append(element("p", item.tip));
       if (item.code) details.append(element("pre", item.code));
       const retry = element("button", "Treinar este erro", "primary"); retry.type = "button";
-      retry.onclick = () => { $("mistakes-dialog").close(); mode = "practice"; state.activeId = item.exerciseId; draft(item.exerciseId).format = engine.bugFor(byId.get(item.exerciseId)) ? "bug" : "write"; prepareCurrentChallenge(true); save(); render(); };
+      retry.onclick = () => { if (busy) return; $("mistakes-dialog").close(); setMode("practice"); clearExerciseFilters(); state.activeId = item.exerciseId; draft(item.exerciseId).format = engine.bugFor(byId.get(item.exerciseId)) ? "bug" : "write"; restartRound(item.exerciseId); prepareCurrentChallenge(true); save(); render(); };
       details.append(retry); list.append(details);
     });
   }
@@ -1047,28 +1173,55 @@
   }
 
   async function importData(file) {
+    const request = ++importRequest;
+    pendingImport = null; $("import-preview").hidden = true;
     try {
-      const payload = JSON.parse(await file.text()); const imported = payload.state || payload;
-      if (!imported || typeof imported !== "object" || !imported.drafts || !imported.learning) throw new Error("Este arquivo não parece ser um backup do Python, de cabeça.");
-      if (!window.confirm("Substituir o progresso deste navegador pelo backup importado?")) return;
-      localStorage.setItem(storageKey, JSON.stringify(imported)); window.location.reload();
-    } catch (error) { $("data-status").textContent = "Não foi possível importar: " + error.message; }
+      if (file.size > 5 * 1024 * 1024) throw new Error("O backup excede o limite de 5 MB.");
+      const payload = JSON.parse(await file.text());
+      if (request !== importRequest) return;
+      pendingImport = window.PROGRESS_ENGINE.validateBackup(payload, exercises);
+      const imported = pendingImport.state;
+      const drafts = Object.values(imported.drafts || {}).filter(item => item.code?.trim()).length;
+      const attempts = imported.learning?.attempts?.length || 0;
+      const mistakes = imported.learning?.mistakes?.filter(item => !item.resolvedAt).length || 0;
+      $("import-summary").textContent = drafts + " rascunho(s), " + attempts + " tentativa(s) no histórico e " + mistakes + " erro(s) pendente(s).";
+      $("import-warning").textContent = ["A importação substitui o progresso atual deste navegador. Exporte uma cópia antes de continuar.", ...(pendingImport.warnings || [])].join(" ");
+      $("import-preview").hidden = false;
+      $("data-status").textContent = "Backup validado. Confira o resumo antes de importar.";
+    } catch (error) {
+      if (request === importRequest) $("data-status").textContent = "Não foi possível importar: " + error.message;
+    } finally { if (request === importRequest) $("import-data").value = ""; }
+  }
+
+  function cancelImport() {
+    importRequest += 1; pendingImport = null; $("import-preview").hidden = true; $("import-data").value = "";
+  }
+
+  function confirmImport() {
+    if (!pendingImport || busy) return;
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(pendingImport.state)); window.location.reload();
+    } catch (error) { $("data-status").textContent = "Não foi possível salvar o backup: " + error.message; }
   }
 
   function resetCurrent() {
+    if (busy || mode === "exam") return;
     const id = activeId();
     if (answerFor(id).trim() && !window.confirm("Apagar esta resposta e tentar novamente do zero?")) return;
     if (mode === "coach") {
       state.coach.answers[id] = ""; state.coach.results[id] = null; state.coach.helped[id] = false; state.coach.confidence[id] = null; state.coach.prepared[id] = ""; state.coach.paperTranscribing[id] = false;
     } else state.drafts[id] = normalizeDraft({ variantSeed: draft(id).variantSeed, format: draft(id).format });
+    restartRound(id);
     prepareCurrentChallenge(); save(); render(); if (!$("editor-wrap").hidden) $("answer").focus();
   }
 
   function nextVariant() {
+    if (busy || mode === "exam") return;
     const id = activeId();
     if (answerFor(id).trim() && !window.confirm("Gerar outra variação e apagar a resposta atual?")) return;
     if (mode === "coach") { state.coach.variants[id] += 1; state.coach.answers[id] = ""; state.coach.results[id] = null; state.coach.prepared[id] = ""; }
     else { draft(id).variantSeed += 1; draft(id).code = ""; draft(id).result = null; draft(id).challengeKey = ""; draft(id).roundAttempts = 0; }
+    restartRound(id);
     prepareCurrentChallenge(); save(); render();
   }
 
@@ -1104,8 +1257,12 @@
   $("close-mistakes").onclick = () => $("mistakes-dialog").close();
   $("data-button").onclick = () => { $("data-status").textContent = ""; $("data-dialog").showModal(); };
   $("close-data").onclick = () => $("data-dialog").close();
+  $("data-dialog").addEventListener("close", cancelImport);
   $("export-data").onclick = exportData;
   $("import-data").addEventListener("change", event => { if (event.target.files[0]) importData(event.target.files[0]); });
+  $("confirm-import").onclick = confirmImport;
+  $("cancel-import").onclick = () => { cancelImport(); $("data-status").textContent = "Importação cancelada. Seu progresso foi mantido."; };
+  $("export-before-import").onclick = exportData;
   $("clear-data").onclick = () => {
     if (!window.confirm("Apagar permanentemente rascunhos, histórico, erros e domínio deste navegador?")) return;
     localStorage.removeItem(storageKey); window.location.reload();
@@ -1116,30 +1273,34 @@
   $("start-diagnostic").onclick = () => { $("curriculum-dialog").close(); startDiagnostic(); };
   $("unit-filter").addEventListener("change", event => {
     unitFilter = event.target.value;
-    const list = currentList();
-    if (!list.some(exercise => exercise.id === state.activeId) && list[0]) state.activeId = list[0].id;
-    save(); render();
+    applyExerciseFilters();
   });
+  $("exercise-search").addEventListener("input", event => { searchQuery = event.target.value; applyExerciseFilters(); });
+  $("exercise-status-filter").addEventListener("change", event => { statusFilter = event.target.value; applyExerciseFilters(); });
+  $("clear-exercise-filters").onclick = () => { clearExerciseFilters(); applyExerciseFilters(); };
+  $("continue-study-button").onclick = continueStudy;
+  $("daily-study-button").onclick = () => { if (!busy) { startCoach(false); $("exercise-title").focus(); } };
+  $("diagnostic-study-button").onclick = () => { if (!busy) { startDiagnostic(); $("exercise-title").focus(); } };
   $("coach-mode").onclick = () => startCoach(false);
-  $("practice-mode").onclick = () => { mode = "practice"; render(); };
-  $("exam-mode").onclick = () => { if (!state.exam) createExam(); mode = "exam"; render(); };
+  $("practice-mode").onclick = () => { setMode("practice"); save(); render(); };
+  $("exam-mode").onclick = () => { if (!state.exam) createExam(); setMode("exam"); save(); render(); };
   $("new-coach").onclick = () => { if (state.coach && !state.coach.finishedAt && !window.confirm("Remontar a sessão atual com novas prioridades?")) return; startCoach(true); };
   $("finish-coach-item").onclick = nextCoachItem;
   $("new-exam").onclick = () => { if (!window.confirm("Gerar outro simulado? As respostas do simulado atual serão substituídas.")) return; createExam(state.exam?.course); render(); };
   $("course-exam-button").onclick = () => {
     if (busy) return;
-    if (state.exam && !state.exam.finishedAt && !window.confirm("Substituir o simulado atual por um simulado do curso?")) return;
-    createExam(true); mode = "exam"; render();
+    if (state.exam && !state.exam.finishedAt && !window.confirm("Substituir o simulado atual por um desafio de integração?")) return;
+    createExam(true); setMode("exam"); save(); render();
   };
   $("course-review-button").onclick = () => {
     if (busy) return;
-    if (state.coach && !state.coach.finishedAt && !window.confirm("Substituir a sessão atual pela revisão do curso?")) return;
+    if (state.coach && !state.coach.finishedAt && !window.confirm("Substituir a sessão atual pela revisão de fundamentos?")) return;
     state.coach = normalizeCoach({ type: "course", ids: window.COURSE_REVIEW.reviewIds.slice(), activeId: window.COURSE_REVIEW.reviewIds[0], startedAt: Date.now(), finishedAt: null, answers: {}, results: {}, variants: {} });
-    mode = "coach"; save(); render();
+    setMode("coach"); save(); render();
   };
   $("finish-exam").onclick = finishExam;
-  $("previous-button").onclick = () => { const list = currentList(); navigate(list[list.findIndex(item => item.id === activeId()) - 1].id); };
-  $("next-button").onclick = () => { const list = currentList(); navigate(list[list.findIndex(item => item.id === activeId()) + 1].id); };
+  $("previous-button").onclick = () => { const list = currentList(); const index = list.findIndex(item => item.id === activeId()); if (index > 0) navigate(list[index - 1].id); };
+  $("next-button").onclick = () => { const list = currentList(); const index = list.findIndex(item => item.id === activeId()); if (index >= 0 && list[index + 1]) navigate(list[index + 1].id); };
   $("print-button").onclick = () => { buildPrintSheet(); window.print(); };
   window.addEventListener("beforeprint", buildPrintSheet);
   window.PythonRunner.setStatus(message => { $("runtime-status").textContent = message; });

@@ -3,20 +3,22 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const os = require("node:os");
 const { pathToFileURL } = require("node:url");
 const { spawn } = require("node:child_process");
 const http = require("node:http");
 
 const root = path.resolve(__dirname, "..");
 const artifacts = path.join(__dirname, "artefatos");
-for (const file of ["curriculo.js", "aprendizagem.js", "treinador.js", "manifest.webmanifest", "service-worker.js", "icone.svg"]) {
+for (const file of ["curriculo.js", "aprendizagem.js", "progresso.js", "editor.js", "treinador.js", "manifest.webmanifest", "service-worker.js", "icone.svg"]) {
   assert.ok(fs.existsSync(path.join(root, file)), "Arquivo necessário ausente: " + file);
 }
 const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.webmanifest"), "utf8"));
 assert.equal(manifest.display, "standalone");
 assert.equal(manifest.start_url, "./index.html");
 fs.mkdirSync(artifacts, { recursive: true });
-const profile = fs.mkdtempSync(path.join(artifacts, "perfil-"));
+// O perfil temporário evita operações de sincronização do Drive durante o início do Chrome.
+const profile = fs.mkdtempSync(path.join(os.tmpdir(), "python-de-cabeca-perfil-"));
 const executable = [
   "C:/Program Files/Google/Chrome/Application/chrome.exe",
   "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"
@@ -64,9 +66,16 @@ async function select(id) {
   await evaluate(`Array.from(document.querySelectorAll('.exercise-link')).find(button => button.textContent.includes(EXERCISES.find(ex => ex.id === ${JSON.stringify(id)}).title)).click()`);
 }
 async function checked() {
-  await click("check-button");
-  await waitFor(() => evaluate("!document.getElementById('check-button').disabled"), "correção", 80000);
-  return evaluate("document.getElementById('feedback').textContent");
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await click("check-button");
+    await waitFor(() => evaluate("!document.getElementById('check-button').disabled"), "correção", 80000);
+    const feedback = await evaluate("document.getElementById('feedback').textContent");
+    if (!attempt && feedback.includes("O Python demorou para carregar")) {
+      console.log("CDN demorou no carregamento inicial; repetindo a verificação uma vez.");
+      continue;
+    }
+    return feedback;
+  }
 }
 
 (async () => {
@@ -74,7 +83,7 @@ async function checked() {
   const port = await waitFor(() => {
     try { return fs.readFileSync(portFile, "utf8").split(/\r?\n/)[0]; }
     catch (error) { if (["ENOENT", "EBUSY"].includes(error.code)) return false; throw error; }
-  }, "início do navegador");
+  }, "início do navegador", 45000);
   const targets = await (await fetch("http://127.0.0.1:" + port + "/json/list")).json();
   connection = new WebSocket(targets.find(target => target.type === "page").webSocketDebuggerUrl);
   connection.addEventListener("message", event => {
@@ -108,7 +117,7 @@ async function checked() {
   console.log("OK: página abre por file:// com 136 exercícios únicos, 11 unidades, cinco formatos de questão e filtro curricular.");
   await click("course-review-button");
   assert.equal(await evaluate("document.querySelectorAll('.exercise-link').length"), 12);
-  assert.equal(await evaluate("document.getElementById('coach-title').textContent"), "Revisão do curso");
+  assert.equal(await evaluate("document.getElementById('coach-title').textContent"), "Revisão de fundamentos");
   await input("True\nFalse\nTrue");
   assert.match(await checked(), /Passou/);
   await click("practice-mode");
@@ -118,11 +127,86 @@ async function checked() {
   await click("new-exam");
   assert.equal(await evaluate("JSON.parse(localStorage.getItem('python-de-cabeca-v1')).exam.course"), true);
   await click("practice-mode");
-  console.log("OK: revisão guiada funciona e simulado do curso conserva seu perfil ao gerar nova prova.");
+  console.log("OK: revisão de fundamentos funciona e desafio de integração conserva seu perfil ao gerar outro desafio.");
+
+  assert.equal(await evaluate("/amanhã|véspera|02\\/10\\/2026/i.test(document.body.textContent)"), false);
+  assert.equal(await evaluate("document.querySelector('.course-review') === null && !!document.querySelector('.learning-start')"), true);
+  assert.deepEqual(await evaluate("[...document.querySelectorAll('.study-references a')].map(link=>link.href)"), ["https://prdm0.github.io/curso_python/#/title-slide", "https://github.com/prdm0/curso_python", "https://pythoniluminado.netlify.app/"]);
+  assert.equal(await evaluate("document.getElementById('reference-dialog').textContent.includes('= atribui; == compara igualdade; >= significa')"), true);
+  await evaluate("document.getElementById('exercise-search').focus()");
+  await send("Input.insertText", {text:"quociente"});
+  assert.equal(await evaluate("document.activeElement.id"), "exercise-search");
+  await evaluate("document.getElementById('exercise-search').value=''; document.getElementById('exercise-search').dispatchEvent(new Event('input',{bubbles:true}));");
+  await evaluate("(() => { const search = document.getElementById('exercise-search'); search.value = 'quociente'; search.dispatchEvent(new Event('input', {bubbles:true})); })()");
+  assert.ok(await evaluate("document.querySelectorAll('.exercise-link').length > 0 && document.querySelectorAll('.exercise-link').length < 136"));
+  await evaluate("(() => { const search = document.getElementById('exercise-search'); search.value = 'nenhum-exercicio-xyz'; search.dispatchEvent(new Event('input', {bubbles:true})); })()");
+  assert.equal(await evaluate("document.querySelectorAll('.exercise-link').length === 0 && !document.getElementById('exercise-empty').hidden && document.getElementById('next-button').disabled && document.getElementById('previous-button').disabled"), true);
+  await click("clear-exercise-filters");
+  assert.equal(await evaluate("document.querySelectorAll('.exercise-link').length"), 136);
+  await evaluate("(() => { const search = document.getElementById('exercise-search'); search.value = 'funcoes'; search.dispatchEvent(new Event('input', {bubbles:true})); })()");
+  assert.ok(await evaluate("document.querySelectorAll('.exercise-link').length > 0"));
+  await evaluate("(() => { const search = document.getElementById('exercise-search'); search.value = ''; search.dispatchEvent(new Event('input', {bubbles:true})); })()");
+  console.log("OK: entrada de aprendizagem sem data de prova, consulta corrigida, busca sem acentos e estado vazio seguro.");
+
+  await select("mesa_range");
+  await input("2\n4\n6");
+  await checked();
+  const credited = await evaluate("(() => { const r = JSON.parse(localStorage.getItem('python-de-cabeca-v1')).learning.records.mesa_range; return {mastery:r.mastery, interval:r.interval, dueAt:r.dueAt}; })()");
+  await evaluate("(() => { const s=JSON.parse(localStorage.getItem('python-de-cabeca-v1')); delete s.learning.records.mesa_range.roundHistory; delete s.learning.records.mesa_range.creditHistory; delete s.learning.records.mesa_range.lastCreditAt; delete s.drafts.mesa_range.roundId; localStorage.setItem('python-de-cabeca-v1',JSON.stringify(s)); })()");
+  await send("Page.reload");
+  await waitFor(() => evaluate("typeof EXERCISES !== 'undefined' && document.getElementById('exercise-title')?.textContent === EXERCISES.find(e=>e.id==='mesa_range').title"), "migração de resposta resolvida antiga");
+  await evaluate("window.confirm=()=>true");
+  await checked();
+  assert.deepEqual(await evaluate("(() => { const r = JSON.parse(localStorage.getItem('python-de-cabeca-v1')).learning.records.mesa_range; return {mastery:r.mastery, interval:r.interval, dueAt:r.dueAt}; })()"), credited);
+  await click("retry-button");
+  await input("2\n4\n6");
+  await checked();
+  assert.deepEqual(await evaluate("(() => { const r = JSON.parse(localStorage.getItem('python-de-cabeca-v1')).learning.records.mesa_range; return {mastery:r.mastery, interval:r.interval, dueAt:r.dueAt}; })()"), credited);
+  await evaluate("(() => { const filter = document.getElementById('exercise-status-filter'); filter.value = 'unseen'; filter.dispatchEvent(new Event('change',{bubbles:true})); })()");
+  assert.equal(await evaluate("[...document.querySelectorAll('.exercise-link')].some(button => button.textContent.includes(EXERCISES.find(ex=>ex.id==='mesa_range').title))"), false);
+  await evaluate("(() => { const filter = document.getElementById('exercise-status-filter'); filter.value = 'all'; filter.dispatchEvent(new Event('change',{bubbles:true})); })()");
+  console.log("OK: repetir a correção ou refazer a mesma questão no mesmo dia não infla domínio nem adia revisão.");
+
+  await select("ola");
+  await input("if True:");
+  await evaluate("(() => { const field=document.getElementById('answer'); field.setSelectionRange(field.value.length,field.value.length); field.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true})); })()");
+  assert.equal(await evaluate("document.getElementById('answer').value"), "if True:\n    ");
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('python-de-cabeca-v1')).drafts.ola.code"), "if True:\n    ");
+  assert.equal(await evaluate("document.querySelectorAll('.editor-line-number').length"), 2);
+  await evaluate("document.getElementById('answer').dispatchEvent(new KeyboardEvent('keydown',{key:'Backspace',bubbles:true,cancelable:true}))");
+  assert.equal(await evaluate("document.getElementById('answer').value"), "if True:\n");
+  await input("if True:");
+  await evaluate("(() => {const field=document.getElementById('answer'); field.focus(); field.setSelectionRange(field.value.length,field.value.length);})()");
+  await send("Input.dispatchKeyEvent", {type:"keyDown",key:"Enter",code:"Enter",windowsVirtualKeyCode:13});
+  await send("Input.dispatchKeyEvent", {type:"keyUp",key:"Enter",code:"Enter",windowsVirtualKeyCode:13});
+  assert.equal(await evaluate("document.getElementById('answer').value"), "if True:\n    ");
+  await evaluate("document.execCommand('undo')");
+  assert.equal(await evaluate("document.getElementById('answer').value"), "if True:");
+  await evaluate("document.execCommand('redo')");
+  assert.equal(await evaluate("document.getElementById('answer').value"), "if True:\n    ");
+  await send("Input.dispatchKeyEvent", {type:"keyDown",key:"Backspace",code:"Backspace",windowsVirtualKeyCode:8});
+  await send("Input.dispatchKeyEvent", {type:"keyUp",key:"Backspace",code:"Backspace",windowsVirtualKeyCode:8});
+  assert.equal(await evaluate("document.getElementById('answer').value"), "if True:\n");
+  await evaluate("document.execCommand('undo')");
+  assert.equal(await evaluate("document.getElementById('answer').value"), "if True:\n    ");
+  assert.deepEqual(await evaluate("(() => {const node=CodeEditor.comparison('1\\n2\\n3','1\\n9\\n4'); return [...node.querySelectorAll('.comparison-full pre')].map(pre=>pre.textContent);})()"), ["1\n2\n3","1\n9\n4"]);
+  assert.equal(await evaluate("(() => {const node=CodeEditor.comparison('<script>','<b>'); return node.querySelectorAll('script,b').length===0 && !node.querySelector('.comparison-full').open;})()"), true);
+  await input("");
+  await click("daily-study-button");
+  assert.equal(await evaluate("document.querySelectorAll('.exercise-link').length"), 5);
+  const resumeCoachId = await evaluate("JSON.parse(localStorage.getItem('python-de-cabeca-v1')).coach.activeId");
+  await send("Page.reload");
+  await waitFor(() => evaluate("document.querySelectorAll('.exercise-link').length === 136"), "retorno ao estudo livre");
+  await click("continue-study-button");
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('python-de-cabeca-v1')).coach.activeId"), resumeCoachId);
+  assert.equal(await evaluate("!document.getElementById('coach-panel').hidden"), true);
+  await click("practice-mode");
+  await evaluate("window.confirm=()=>true");
+  console.log("OK: editor recua e remove recuo com salvamento; continuar retoma sessão após recarregar.");
 
   if (process.argv.includes("--layout-only")) {
     await select("classifica");
-    for (const width of [1365, 390]) {
+    for (const width of [1365, 850, 390]) {
       await send("Emulation.setDeviceMetricsOverride", { width, height: width === 390 ? 844 : 1000, deviceScaleFactor: 1, mobile: width === 390 });
       await select("classifica");
       await input("# rascunho");
@@ -173,6 +257,7 @@ async function checked() {
   await evaluate("document.querySelector('[data-confidence=\"3\"]').click()");
   await input("def dobro(numero):\n    print(numero * 2)");
   assert.match(await checked(), /Ainda tem algo|ajustar/);
+  assert.equal(await evaluate("document.querySelectorAll('.comparison-changed').length > 0 && document.getElementById('feedback').textContent.includes('Primeira diferença')"), true);
   assert.equal(await evaluate("(() => { const s = JSON.parse(localStorage.getItem('python-de-cabeca-v1')); return s.version === 4 && s.learning.attempts.some(a => a.exerciseId === 'dobro_funcao' && !a.pass && a.confidence === 3) && s.learning.records.dobro_funcao.dueAt > Date.now(); })()"), true);
   assert.equal(await evaluate("document.getElementById('mistakes-count').hidden"), false);
   await click("mistakes-button");
@@ -182,6 +267,27 @@ async function checked() {
   assert.equal(await evaluate("document.getElementById('learning-dialog').open && document.querySelectorAll('.skill-card').length === 15 && document.querySelectorAll('.stat-card').length === 4"), true);
   await click("close-learning");
   console.log("OK: confiança, histórico, revisão, domínio e caderno de erros são atualizados por uma tentativa real.");
+
+  await input("def dobro(numero)\n    return numero * 2");
+  await checked();
+  assert.equal(await evaluate("document.querySelector('.editor-line-number.has-error')?.textContent"), "1");
+  assert.equal(await evaluate("document.getElementById('editor-status').hidden"), false);
+  await input("def dobro(numero):\n    return numero * 2");
+  assert.equal(await evaluate("document.querySelector('.editor-line-number.has-error') === null && document.getElementById('editor-status').hidden"), true);
+  console.log("OK: feedback marca diferenças e a linha de erro; edição limpa a indicação anterior.");
+
+  await select("ola");
+  await input(await evaluate("EXERCISES.find(ex=>ex.id==='ola').solution"));
+  await evaluate("window.__runnerOriginal=PythonRunner.run; PythonRunner.run=()=>new Promise(resolve=>{window.__finishGrade=resolve;});");
+  await click("check-button");
+  assert.equal(await evaluate("document.getElementById('diagnostic-study-button').disabled && [...document.querySelectorAll('.format-button')].every(button=>button.disabled)"), true);
+  await click("diagnostic-study-button");
+  await evaluate("document.querySelector('[data-format=fade]').click()");
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('python-de-cabeca-v1')).activeId"), "ola");
+  await evaluate("window.__finishGrade({pass:true,cases:[{pass:true,expected:'ok',got:'ok'}]}); PythonRunner.run=window.__runnerOriginal;");
+  await waitFor(() => evaluate("!document.getElementById('check-button').disabled"), "fim da correção controlada");
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('python-de-cabeca-v1')).drafts.ola.result.pass"), true);
+  console.log("OK: trocar sessão ou formato fica bloqueado enquanto uma resposta está sendo corrigida.");
 
   await select("dobro");
   await click("new-variant");
@@ -316,6 +422,9 @@ async function checked() {
   assert.equal(await evaluate("document.documentElement.scrollWidth <= window.innerWidth"), true);
   const mobile = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
   fs.writeFileSync(path.join(artifacts, "celular.png"), Buffer.from(mobile.data, "base64"));
+  await send("Emulation.setDeviceMetricsOverride", {width:850,height:1000,deviceScaleFactor:1,mobile:false});
+  assert.equal(await evaluate("document.documentElement.scrollWidth<=window.innerWidth && document.getElementById('exercise-list').getBoundingClientRect().height<=650"), true);
+  await send("Emulation.setDeviceMetricsOverride", {width:390,height:844,deviceScaleFactor:1,mobile:true});
 
   await click("data-button");
   await evaluate(`(() => {
@@ -337,8 +446,23 @@ async function checked() {
     const input = document.getElementById("import-data"); input.files = transfer.files;
     input.dispatchEvent(new Event("change", { bubbles: true }));
   })()`);
+  await waitFor(() => evaluate("!document.getElementById('import-preview').hidden"), "prévia do backup");
+  assert.notEqual(await evaluate("JSON.parse(localStorage.getItem('python-de-cabeca-v1')).learning.streak.days"), 7);
+  assert.equal(await evaluate("document.getElementById('import-summary').textContent.includes('rascunho')"), true);
+  await click("confirm-import");
   await waitFor(() => evaluate("document.getElementById('exercise-title')?.textContent === 'Quociente e resto' && JSON.parse(localStorage.getItem('python-de-cabeca-v1')).learning.streak.days === 7"), "importação do backup");
-  console.log("OK: backup JSON é exportado e restaurado com rascunhos e histórico.");
+  await click("data-button");
+  const beforeInvalidBackup = await evaluate("localStorage.getItem('python-de-cabeca-v1')");
+  await evaluate(`(() => {
+    const saved = JSON.parse(localStorage.getItem("python-de-cabeca-v1")); saved.learning.records.dobro = {attempts:-1};
+    const file = new File([JSON.stringify({app:"python-de-cabeca",version:4,state:saved})],"invalido.json",{type:"application/json"});
+    const transfer = new DataTransfer(); transfer.items.add(file); const field=document.getElementById("import-data"); field.files=transfer.files; field.dispatchEvent(new Event("change",{bubbles:true}));
+  })()`);
+  await waitFor(() => evaluate("document.getElementById('data-status').textContent.includes('Não foi possível importar')"), "backup inválido rejeitado");
+  assert.equal(await evaluate("localStorage.getItem('python-de-cabeca-v1')"), beforeInvalidBackup);
+  assert.equal(await evaluate("document.getElementById('import-preview').hidden"), true);
+  await click("close-data");
+  console.log("OK: backup validado é pré-visualizado antes de substituir progresso; backup inválido mantém os dados atuais.");
 
   offlineServer = http.createServer((request, response) => {
     const requested = decodeURIComponent(new URL(request.url, "http://localhost").pathname);
@@ -358,7 +482,7 @@ async function checked() {
   await send("Page.navigate", { url: "http://127.0.0.1:" + offlinePort + "/index.html" });
   await waitFor(() => evaluate("document.querySelectorAll('.exercise-link').length === 136"), "página servida por HTTP");
   await waitFor(() => evaluate("navigator.serviceWorker.ready.then(() => true)"), "service worker pronto");
-  await waitFor(() => evaluate("caches.has('python-de-cabeca-v5')"), "cache offline preenchido");
+  await waitFor(() => evaluate("caches.has('python-de-cabeca-v6')"), "cache offline preenchido");
   await send("Network.emulateNetworkConditions", { offline: true, latency: 0, downloadThroughput: 0, uploadThroughput: 0 });
   await send("Page.reload", { ignoreCache: true });
   await waitFor(() => evaluate("document.querySelectorAll('.exercise-link').length === 136"), "recarga offline", 20000);
