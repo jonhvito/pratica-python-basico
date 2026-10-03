@@ -1,5 +1,6 @@
-/* Verificação opcional: node pratica-python-basico/verificacao/verificar.cjs
-   Usa Node >= 22 e Chrome/Edge local, sem instalar dependências. */
+/* Verificação: node verificacao/verificar.cjs [--layout-only]
+   Usa Node >= 22 e Chrome/Edge local, sem instalar dependências.
+   BROWSER_EXECUTABLE ou CHROME_BIN permite indicar outro executável. */
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -20,23 +21,46 @@ assert.equal(manifest.start_url, "./index.html");
 fs.mkdirSync(artifacts, { recursive: true });
 // O perfil temporário evita operações de sincronização do Drive durante o início do Chrome.
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), "python-de-cabeca-perfil-"));
-const executable = [
+const executable = process.env.BROWSER_EXECUTABLE || process.env.CHROME_BIN || [
   "C:/Program Files/Google/Chrome/Application/chrome.exe",
-  "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"
+  "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
+  "/usr/bin/google-chrome",
+  "/usr/bin/google-chrome-stable",
+  "/opt/google/chrome/chrome",
+  "/usr/bin/chromium",
+  "/usr/bin/chromium-browser",
+  "/snap/bin/chromium"
 ].find(file => fs.existsSync(file));
-assert.ok(executable, "Chrome ou Edge precisa estar instalado.");
+assert.ok(executable, "Chrome/Chromium ou Edge precisa estar instalado; indique BROWSER_EXECUTABLE ou CHROME_BIN se necessário.");
 const browser = spawn(executable, ["--headless=new", "--remote-debugging-port=0", "--user-data-dir=" + profile,
-  "--no-first-run", "--no-default-browser-check", "--disable-background-networking", "about:blank"], { windowsHide: true, stdio: "ignore" });
+  "--no-first-run", "--no-default-browser-check", "--disable-background-networking", "--disable-dev-shm-usage", "about:blank"], { windowsHide: true, stdio: "ignore" });
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 let connection;
 let offlineServer;
 let sequence = 0;
 const pending = new Map();
 const errors = [];
+let browserFailure = null;
+let closingBrowser = false;
+
+function rejectPending(error) {
+  for (const request of pending.values()) { clearTimeout(request.timeout); request.reject(error); }
+  pending.clear();
+}
+
+browser.once("error", error => {
+  browserFailure = new Error("Não foi possível iniciar o navegador " + executable + ": " + error.message);
+  rejectPending(browserFailure);
+});
+browser.once("exit", (code, signal) => {
+  if (!closingBrowser) browserFailure = new Error("O navegador encerrou antes de concluir a verificação (código " + code + ", sinal " + signal + ").");
+  rejectPending(browserFailure || new Error("O navegador foi encerrado."));
+});
 
 async function waitFor(check, message, timeout = 15000) {
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
+    if (browserFailure) throw browserFailure;
     const result = await check();
     if (result) return result;
     await pause(120);
@@ -46,6 +70,8 @@ async function waitFor(check, message, timeout = 15000) {
 
 function send(method, params = {}) {
   return new Promise((resolve, reject) => {
+    if (browserFailure) { reject(browserFailure); return; }
+    if (connection?.readyState !== WebSocket.OPEN) { reject(new Error("A conexão com o navegador está fechada: " + method)); return; }
     const id = ++sequence;
     const timeout = setTimeout(() => { pending.delete(id); reject(new Error("CDP demorou: " + method)); }, 90000);
     pending.set(id, { resolve, reject, timeout });
@@ -99,6 +125,8 @@ async function checked() {
     if (data.method === "Runtime.exceptionThrown") errors.push(data.params.exceptionDetails);
   });
   await new Promise((resolve, reject) => { connection.addEventListener("open", resolve, { once: true }); connection.addEventListener("error", reject, { once: true }); });
+  connection.addEventListener("close", () => rejectPending(browserFailure || new Error("A conexão com o navegador foi encerrada.")));
+  connection.addEventListener("error", () => rejectPending(browserFailure || new Error("Falha na conexão com o navegador.")));
   await send("Runtime.enable");
   await send("Page.enable");
   await send("Emulation.setDeviceMetricsOverride", { width: 1365, height: 1000, deviceScaleFactor: 1, mobile: false });
@@ -241,7 +269,9 @@ async function checked() {
       const screenshot = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: width === 390 });
       fs.writeFileSync(path.join(artifacts, width === 390 ? "celular.png" : "desktop.png"), Buffer.from(screenshot.data, "base64"));
     }
+    assert.deepEqual(errors, [], "Sem exceções JavaScript na página.");
     console.log("OK: exercício ativo fica visível no menu ao navegar e digitar, no computador e no celular.");
+    console.log("VERIFICAÇÕES DE INTERFACE PASSARAM. Artefatos: " + artifacts);
     return;
   }
 
@@ -518,11 +548,12 @@ async function checked() {
   console.log("OK: impressão, trilha, capturas de tela, largura de celular e console sem exceções.");
   console.log("TODAS AS VERIFICAÇÕES PASSARAM. Artefatos: " + artifacts);
 })().catch(error => { console.error(error); process.exitCode = 1; }).finally(async () => {
+  closingBrowser = true;
   if (connection?.readyState === WebSocket.OPEN) {
     try { await send("Browser.close"); } catch (_) { /* Pode fechar antes da resposta. */ }
     connection.close();
   }
   browser.kill();
   if (offlineServer) await new Promise(resolve => offlineServer.close(resolve));
-  for (const request of pending.values()) clearTimeout(request.timeout);
+  rejectPending(new Error("Verificação encerrada."));
 });

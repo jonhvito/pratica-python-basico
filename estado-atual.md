@@ -75,6 +75,14 @@ O progresso é local ao navegador, sem conta ou sincronização automática. A c
 
 ## Registro de alterações
 
+### 03/10/2026 — Verificações automáticas na publicação
+
+- **O que foi feito:** workflow com Ubuntu 24.04, Node 22 e Python 3.12, sintaxe, módulos de regressão, soluções Python locais e interface em três larguras antes de publicar; capturas guardadas mesmo em falha. Verificador descobre navegador Linux ou caminho configurado e trata encerramento precoce.
+- **Motivo:** impedir publicar regressões cobertas pelos testes sem exigir instalação de dependências na aplicação ou depender do CDN para validar soluções na CI.
+- **Áreas afetadas:** `.github/workflows/pages.yml` e `verificacao/verificar.cjs`; funcionamento e formato de progresso preservados.
+- **Validação:** sintaxe do verificador, YAML conferido com PyYAML e `git diff --check` passaram. Executável inexistente retornou código 1 com mensagem controlada de inicialização. A suíte Python local já passou nesta revisão; Chrome real será repetido na rodada integrada.
+- **Limites:** workflow não executado no GitHub nesta máquina; Linux será validado quando houver envio para o repositório. A execução completa local continua cobrindo Pyodide e recarga offline, enquanto a CI usa o teste de interface e Python local.
+
 ### 03/10/2026 — Representações coerentes e correção semântica
 
 - **O que foi feito:** representação consistente dos resultados Python até 8.000 caracteres, aviso explícito de truncamento e comparação sem destaque de erro quando o caso foi aprovado semanticamente; cache v11. Módulos de apoio oferecem dicas graduais, explicação, transferência e dois projetos sobre atividades existentes. O executor recebe uma API isolada para experimentar entradas próprias; esses recursos terão controles na interface na próxima etapa.

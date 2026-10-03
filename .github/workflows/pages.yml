@@ -12,20 +12,38 @@ concurrency:
   cancel-in-progress: false
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - name: Verificar JavaScript
         run: |
-          for file in *.js; do node --check "$file"; done
+          for file in *.js verificacao/*.cjs; do node --check "$file"; done
           node verificacao/conteudo.cjs
           node verificacao/progresso.cjs
           node verificacao/editor.cjs
           node verificacao/cache.cjs
           node verificacao/armazenamento.cjs
+      - name: Verificar soluções e regressões em Python local
+        run: node verificacao/python.cjs
+      - name: Verificar interface no computador e no celular
+        timeout-minutes: 5
+        run: node verificacao/verificar.cjs --layout-only
+      - name: Guardar capturas da interface
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: capturas-interface
+          path: verificacao/artefatos/*.png
+          if-no-files-found: warn
       - uses: actions/configure-pages@v5
       - name: Preparar arquivos públicos
         run: |
