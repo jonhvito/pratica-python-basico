@@ -157,6 +157,10 @@ async function checked() {
   }
   await send("Emulation.setDeviceMetricsOverride", { width: 1365, height: 1000, deviceScaleFactor: 1, mobile: false });
   console.log("OK: alternativas preservam linhas e indentação no computador e no celular.");
+  await evaluate("document.querySelectorAll('.choice-option')[2].focus(); document.activeElement.click()");
+  assert.equal(await evaluate("document.activeElement.classList.contains('choice-option') && document.activeElement.dataset.value==='2'"), true);
+  assert.equal(await evaluate("!!document.querySelector('.skip-link')"), true);
+  console.log("OK: seleção conserva foco e há atalho para chegar ao exercício.");
 
   await select("mesa_range");
   await input("2\n4\n6");
@@ -220,7 +224,7 @@ async function checked() {
       await send("Emulation.setDeviceMetricsOverride", { width, height: width === 390 ? 844 : 1000, deviceScaleFactor: 1, mobile: width === 390 });
       await select("classifica");
       await input("# rascunho");
-      assert.equal(await evaluate("(() => { const nav = document.getElementById('exercise-list').getBoundingClientRect(); const active = document.querySelector('.exercise-link[aria-current=true]').getBoundingClientRect(); return active.top >= nav.top - 1 && active.bottom <= nav.bottom + 1; })()"), true);
+      assert.equal(await evaluate("(() => { if(window.innerWidth<=800) return !document.getElementById('exercise-catalog').open && document.activeElement.id==='exercise-title'; const nav = document.getElementById('exercise-list').getBoundingClientRect(); const active = document.querySelector('.exercise-link[aria-current=true]').getBoundingClientRect(); return active.top >= nav.top - 1 && active.bottom <= nav.bottom + 1; })()"), true);
       assert.equal(await evaluate("document.documentElement.scrollWidth <= window.innerWidth"), true);
       await input("");
       const screenshot = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: width === 390 });

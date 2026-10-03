@@ -607,7 +607,10 @@
     paperStartedAt = null;
     prepareCurrentChallenge();
     save(); render();
-    if (focus) $("exercise-title").focus({ preventScroll: true });
+    if (focus) {
+      if (window.matchMedia("(max-width: 800px)").matches) $("exercise-catalog").open = false;
+      $("exercise-title").focus();
+    }
   }
 
   function renderExample(exercise) {
@@ -625,7 +628,10 @@
 
   function selectChoice(value) {
     if (busy) return;
+    const restoreFocus = $("choice-options").contains(document.activeElement);
     setAnswer(activeId(), value); setResult(activeId(), null); save(); renderChoice(currentExercise()); renderNavigation(); renderState();
+    if (restoreFocus) [...$("choice-options").querySelectorAll("button")].find(button => button.dataset.value === value)?.focus();
+    $("selection-status").textContent = "Alternativa " + String.fromCharCode(65 + Number(value)) + " selecionada.";
   }
 
   function renderChoice(exercise) {
@@ -634,6 +640,7 @@
     if (panel.hidden) return;
     exercise.options.forEach((option, index) => {
       const button = element("button", undefined, "choice-option"); button.type = "button";
+      button.dataset.value = option.value;
       button.setAttribute("aria-pressed", String(answerFor(exercise.id) === option.value));
       const content = element(option.label.includes("\n") ? "code" : "span", option.label, "choice-text");
       button.append(element("span", String.fromCharCode(65 + index), "choice-letter"), content);
@@ -657,6 +664,10 @@
     if (target < 0 || target >= lines.length) return;
     [lines[index], lines[target]] = [lines[target], lines[index]];
     setAnswer(exercise.id, lines.join("\n")); setResult(exercise.id, null); save(); renderOrder(exercise); renderNavigation(); renderState();
+    const row = $("order-lines").children[target];
+    const buttons = [...row.querySelectorAll("button")];
+    (buttons.find(button => !button.disabled) || row).focus();
+    $("selection-status").textContent = "Etapa movida para a posição " + (target + 1) + ".";
   }
 
   function renderOrder(exercise) {
@@ -790,7 +801,8 @@
       const tr = document.createElement("tr");
       ["step", "variables", "output"].forEach(field => {
         const td = document.createElement("td"); const input = document.createElement("input");
-        input.value = row[field] || ""; input.setAttribute("aria-label", field + " da etapa " + (index + 1));
+        const names = { step: "Linha ou etapa", variables: "Variáveis", output: "Saída" };
+        input.value = row[field] || ""; input.setAttribute("aria-label", names[field] + " da etapa " + (index + 1));
         input.addEventListener("input", () => { row[field] = input.value; save(); });
         td.append(input); tr.append(td);
       });
@@ -1305,6 +1317,16 @@
   $("print-button").onclick = () => { buildPrintSheet(); window.print(); };
   window.addEventListener("beforeprint", buildPrintSheet);
   window.PythonRunner.setStatus(message => { $("runtime-status").textContent = message; });
+  const mobileLayout = window.matchMedia("(max-width: 800px)");
+  $("exercise-catalog").open = !mobileLayout.matches;
+  mobileLayout.addEventListener("change", event => { $("exercise-catalog").open = !event.matches; });
+  function renderConnection() {
+    $("connection-status").hidden = navigator.onLine;
+    $("connection-status").textContent = "Sem internet: alternativas, ordenação e leitura de código continuam funcionando. Programas podem ser corrigidos se Python já foi carregado nesta aba.";
+  }
+  window.addEventListener("online", renderConnection);
+  window.addEventListener("offline", renderConnection);
+  renderConnection();
   if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("service-worker.js").catch(() => {});
   setInterval(updateClocks, 1000);
   populateUnitFilter();

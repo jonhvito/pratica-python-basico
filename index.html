@@ -19,6 +19,7 @@
   <script defer src="treinador.js"></script>
 </head>
 <body>
+  <a class="skip-link" href="#exercise-title">Ir para o exercício</a>
   <header class="site-header">
     <div class="brand"><span class="brand-mark" aria-hidden="true">py.</span><div><strong>Bancada de prática</strong><span>Fundamentos, raciocínio e autonomia em Python</span></div></div>
     <div class="header-actions">
@@ -53,6 +54,7 @@
   <div class="workspace">
     <aside class="sidebar">
       <div class="mode-switch" role="group" aria-label="Modo de estudo"><button id="coach-mode" aria-pressed="false">Treino do dia</button><button id="practice-mode" aria-pressed="true">Praticar</button><button id="exam-mode" aria-pressed="false">Desafio</button></div>
+      <details id="exercise-catalog" class="exercise-catalog" open><summary>Escolher ou buscar exercício</summary>
       <div id="exercise-filters" class="exercise-filters" role="group" aria-label="Filtrar exercícios">
         <div><label class="unit-filter-label" for="unit-filter">Unidade</label><select id="unit-filter"><option value="all">Trilha completa</option></select></div>
         <div><label class="unit-filter-label" for="exercise-search">Buscar exercício</label><input id="exercise-search" type="search" placeholder="Título ou conceito" autocomplete="off"></div>
@@ -63,6 +65,7 @@
       <p class="small muted" id="sidebar-note">Comece do zero. A dica fica a um clique.</p>
       <nav id="exercise-list" aria-label="Exercícios"></nav>
       <div id="exercise-empty" class="exercise-empty" role="status" hidden><p>Nenhum exercício corresponde a estes filtros.</p><button id="clear-exercise-filters" class="quiet">Limpar filtros</button></div>
+      </details>
       <p class="storage-note" id="storage-status" role="status">Rascunhos salvos neste navegador.</p>
     </aside>
     <main id="main">
@@ -86,6 +89,7 @@
       <article class="exercise" aria-labelledby="exercise-title">
         <div class="exercise-heading"><p class="eyebrow" id="exercise-meta"></p><span id="exercise-state" class="tag">Para tentar</span></div>
         <h2 id="exercise-title" tabindex="-1"></h2>
+        <p id="selection-status" class="sr-only" role="status"></p>
         <p id="exercise-prompt" class="prompt"></p>
         <p id="exercise-rule" class="rule"></p>
         <div class="exercise-context">
@@ -135,6 +139,7 @@
         </fieldset>
         <div id="answer-actions" class="answer-actions"><button id="check-button" class="primary">Verificar resposta</button><button id="stop-button" class="quiet" hidden>Parar execução</button><button id="skeleton-button" class="quiet">Mostrar começo</button><button id="retry-button" class="quiet">Refazer do zero</button><button id="new-variant" class="quiet">Nova variação</button></div>
         <p id="runtime-status" class="small muted" role="status">A correção de código carrega Python pela internet na primeira vez.</p>
+        <p id="connection-status" class="small muted" role="status" hidden></p>
         <section id="feedback" class="feedback" aria-label="Resultado da correção" aria-live="polite" hidden></section>
         <div id="study-tools" class="study-tools">
           <details id="hint-details"><summary>Preciso de uma dica</summary><p id="hint-text"></p></details>

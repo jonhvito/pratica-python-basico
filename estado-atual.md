@@ -24,6 +24,8 @@ A busca por título ou conceito aceita diferenças de acentuação e combina uni
 
 Alternativas preservam espaços, tabulações e quebras de linha. Trechos com várias linhas usam fonte monoespaçada para distinguir blocos com e sem indentação, também no celular.
 
+No celular, catálogo e filtros começam recolhidos; selecionar uma atividade leva ao enunciado. A seleção de alternativas e movimentação de etapas preservam o foco. Há salto direto ao exercício, rótulos em português na tabela de mesa, alvos de toque maiores e fonte de 16 pixels no editor estreito. A interface informa os limites da correção quando está sem internet.
+
 O último modo de estudo e os identificadores das rodadas são persistidos. “Continuar de onde parei” retoma sessões e desafios abertos após recarregar. A troca de sessão pede confirmação quando substituir respostas em andamento. Durante a correção, alterações de exercício, formato e sessão ficam bloqueadas; a entrega guarda o contexto da tentativa para impedir atribuir um resultado à resposta errada.
 
 O rodapé mantém três referências, que abrem em nova aba: [site do professor](https://prdm0.github.io/curso_python/#/title-slide), [repositório do professor no GitHub](https://github.com/prdm0/curso_python) e [Python Iluminado](https://pythoniluminado.netlify.app/). O repositório orienta parte do mapeamento de tópicos; Python Iluminado é material complementar. Os enunciados, dados e soluções da bancada são próprios. `README.md` e `LEIA-ME.md` descrevem essa experiência e as referências.
@@ -48,7 +50,7 @@ O rodapé mantém três referências, que abrem em nova aba: [site do professor]
 
 ## Cache e publicação
 
-`service-worker.js` usa o cache `python-de-cabeca-v8`, incluindo `progresso.js` e `editor.js`. `.github/workflows/pages.yml` verifica os conjuntos de testes sem navegador e publica também os novos módulos. As fontes de manutenção e os artefatos de teste não entram na lista de arquivos públicos. Os commits desta revisão são locais; a publicação ocorre quando forem enviados para `main` no GitHub.
+`service-worker.js` usa o cache `python-de-cabeca-v9`, incluindo `progresso.js` e `editor.js`. `.github/workflows/pages.yml` verifica os conjuntos de testes sem navegador e publica também os novos módulos. As fontes de manutenção e os artefatos de teste não entram na lista de arquivos públicos. Os commits desta revisão são locais; a publicação ocorre quando forem enviados para `main` no GitHub.
 
 O cache remove somente versões antigas de `python-de-cabeca-v`; caches de outras aplicações da mesma origem são preservados. Os arquivos da versão instalada não são atualizados individualmente em segundo plano. Recursos ausentes sem rede recebem resposta controlada 503.
 
@@ -68,6 +70,14 @@ O verificador usa um perfil temporário do sistema para evitar a sincronização
 O progresso é local ao navegador, sem conta ou sincronização automática. A correção Python depende do carregamento do CDN; o cache da interface não garante o interpretador offline. O limite de execução continua em quatro segundos. Domínio e dicas são indicadores de estudo; os casos de teste e as verificações estruturais não provam correção para todas as entradas possíveis.
 
 ## Registro de alterações
+
+### 02/10/2026 — Navegação no celular e foco acessível
+
+- **O que foi feito:** catálogo recolhido no celular, foco no enunciado ao navegar, preservação de foco nas alternativas e etapas, atalho ao exercício, rótulos traduzidos e controles de toque maiores; indicação de modo offline e cache v9.
+- **Motivo:** reduzir a distância até a atividade e permitir estudo com teclado, toque e tecnologias assistivas sem perder a posição.
+- **Áreas afetadas:** `index.html`, `styles.css`, `treinador.js`, cache e verificador de interface; dados existentes preservados.
+- **Validação:** sintaxe de `treinador.js` e `verificacao/verificar.cjs`, `node verificacao/conteudo.cjs`, `node verificacao/editor.cjs`, `node verificacao/cache.cjs`, `git diff --check` e `node verificacao/verificar.cjs --layout-only`: aprovados. Capturas de computador e celular inspecionadas; seleção mantém o foco e catálogo móvel fecha ao navegar.
+- **Limites:** teclado virtual e leitor de tela em aparelhos físicos não foram testados; nenhuma declaração de conformidade integral de acessibilidade. A correção Python offline depende de já ter carregado o interpretador na aba.
 
 ### 02/10/2026 — Cache isolado e atualização coerente
 

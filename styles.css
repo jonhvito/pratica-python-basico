@@ -12,6 +12,11 @@ button:hover:not(:disabled) { border-color: var(--green); background: var(--gree
 button:disabled { opacity: .5; cursor: default; }
 :focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
 [hidden] { display: none !important; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.skip-link { position: fixed; top: 8px; left: 8px; z-index: 100; transform: translateY(-180%); padding: 10px 16px; background: white; color: var(--green-dark); }
+.skip-link:focus { transform: none; }
+.exercise-catalog > summary { padding: 10px 12px; margin-bottom: 12px; border: 1px solid var(--line); border-radius: 6px; color: var(--green-dark); cursor: pointer; }
+@media (min-width: 801px) { .exercise-catalog > summary { display: none; } }
 .site-header { max-width: 1380px; margin: auto; padding: 24px 36px; display: flex; align-items: center; justify-content: space-between; gap: 20px; border-bottom: 1px solid var(--line); }
 .brand { display: flex; gap: 12px; align-items: center; }
 .brand-mark { font: bold 25px var(--mono); color: var(--green); padding: 8px; border: 1px solid var(--line); border-radius: 7px; }
@@ -283,8 +288,9 @@ dialog::backdrop { background: #192b2266; }
   .learning-start-actions { align-items: stretch; flex-direction: column; }
   .course-actions button { width: 100%; }
   .exercise-filters { grid-template-columns: 1fr; }
-  textarea { font-size: 13px; }
-  .line-numbers-inner { font-size: 13px; }
+  textarea { font-size: 16px; }
+  .line-numbers-inner { font-size: 16px; }
+  .format-buttons button, .confidence-field button, .icon-button { min-height: 44px; min-width: 44px; }
   .editor-body { grid-template-columns: 2.8rem minmax(0, 1fr); }
   .comparison-values { grid-template-columns: 1fr; }
   .import-actions { align-items: stretch; flex-direction: column; }
