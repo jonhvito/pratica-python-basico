@@ -22,6 +22,8 @@ As alterações foram separadas em diretrizes de manutenção, regras de progres
 
 A busca por título ou conceito aceita diferenças de acentuação e combina unidade com situação: todos, não tentados, erros para revisar e revisão pendente. Digitar na busca mantém o foco. Um resultado vazio permite limpar filtros sem quebrar o exercício aberto ou seus botões de navegação. A lista lateral tem limite de altura também entre 801 e 899 pixels de largura.
 
+Alternativas preservam espaços, tabulações e quebras de linha. Trechos com várias linhas usam fonte monoespaçada para distinguir blocos com e sem indentação, também no celular.
+
 O último modo de estudo e os identificadores das rodadas são persistidos. “Continuar de onde parei” retoma sessões e desafios abertos após recarregar. A troca de sessão pede confirmação quando substituir respostas em andamento. Durante a correção, alterações de exercício, formato e sessão ficam bloqueadas; a entrega guarda o contexto da tentativa para impedir atribuir um resultado à resposta errada.
 
 O rodapé mantém três referências, que abrem em nova aba: [site do professor](https://prdm0.github.io/curso_python/#/title-slide), [repositório do professor no GitHub](https://github.com/prdm0/curso_python) e [Python Iluminado](https://pythoniluminado.netlify.app/). O repositório orienta parte do mapeamento de tópicos; Python Iluminado é material complementar. Os enunciados, dados e soluções da bancada são próprios. `README.md` e `LEIA-ME.md` descrevem essa experiência e as referências.
@@ -46,7 +48,7 @@ O rodapé mantém três referências, que abrem em nova aba: [site do professor]
 
 ## Cache e publicação
 
-`service-worker.js` usa o cache `python-de-cabeca-v6`, incluindo `progresso.js` e `editor.js`. `.github/workflows/pages.yml` verifica os três conjuntos de testes sem navegador e publica também os novos módulos. As fontes de manutenção e os artefatos de teste não entram na lista de arquivos públicos. Os commits desta revisão são locais; a publicação ocorre quando forem enviados para `main` no GitHub.
+`service-worker.js` usa o cache `python-de-cabeca-v7`, incluindo `progresso.js` e `editor.js`. `.github/workflows/pages.yml` verifica os três conjuntos de testes sem navegador e publica também os novos módulos. As fontes de manutenção e os artefatos de teste não entram na lista de arquivos públicos. Os commits desta revisão são locais; a publicação ocorre quando forem enviados para `main` no GitHub.
 
 ## Validação
 
@@ -64,6 +66,14 @@ O verificador usa um perfil temporário do sistema para evitar a sincronização
 O progresso é local ao navegador, sem conta ou sincronização automática. A correção Python depende do carregamento do CDN; o cache da interface não garante o interpretador offline. O limite de execução continua em quatro segundos. Domínio e dicas são indicadores de estudo; os casos de teste e as verificações estruturais não provam correção para todas as entradas possíveis.
 
 ## Registro de alterações
+
+### 02/10/2026 — Indentação nas alternativas
+
+- **O que foi feito:** preservação dos espaços e quebras de linha nas alternativas, com fonte monoespaçada para código em várias linhas; cache da interface atualizado para v7.
+- **Motivo:** as alternativas A e C de “Bloco bem indentado” pareciam iguais porque o HTML colapsava a indentação, impedindo responder pela compreensão.
+- **Áreas afetadas:** `treinador.js`, `styles.css`, `service-worker.js` e `verificacao/verificar.cjs`; catálogo e formato do progresso preservados.
+- **Validação:** `node --check treinador.js`, `node --check verificacao/verificar.cjs`, `node verificacao/conteudo.cjs`, `git diff --check` e `node verificacao/verificar.cjs --layout-only`: aprovados. O verificador confirmou alternativas com recuo em 1365 e 390 pixels e o layout em 1365, 850 e 390 pixels, abrindo por `file://`.
+- **Limites:** o teste foi executado com permissão de execução fora do sandbox para iniciar Chrome/Edge com perfil temporário. Correção Python e cache não foram repetidos nesta etapa; serão conferidos na rodada completa das alterações seguintes.
 
 ### 02/10/2026 — Diretrizes de estado e commits
 

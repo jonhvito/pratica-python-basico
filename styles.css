@@ -151,6 +151,7 @@ dialog::backdrop { background: #192b2266; }
 .choice-panel, .order-panel { margin: 8px 0 18px; }
 #choice-options { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
 .choice-option { display: flex; align-items: flex-start; gap: 10px; min-height: 54px; padding: 11px 13px; text-align: left; background: white; }
+.choice-text { min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 4; }
 .choice-option[aria-pressed="true"] { color: var(--green-dark); border-color: var(--green); background: var(--green-soft); box-shadow: inset 0 0 0 1px var(--green); }
 .choice-letter { display: inline-grid; flex: 0 0 25px; width: 25px; height: 25px; place-items: center; border-radius: 50%; color: var(--green); background: var(--green-soft); font: 600 11px var(--mono); }
 .choice-option[aria-pressed="true"] .choice-letter { color: white; background: var(--green); }

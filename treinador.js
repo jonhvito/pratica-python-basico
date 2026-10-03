@@ -635,7 +635,8 @@
     exercise.options.forEach((option, index) => {
       const button = element("button", undefined, "choice-option"); button.type = "button";
       button.setAttribute("aria-pressed", String(answerFor(exercise.id) === option.value));
-      button.append(element("span", String.fromCharCode(65 + index), "choice-letter"), element("span", option.label));
+      const content = element(option.label.includes("\n") ? "code" : "span", option.label, "choice-text");
+      button.append(element("span", String.fromCharCode(65 + index), "choice-letter"), content);
       button.onclick = () => selectChoice(option.value); container.append(button);
     });
   }

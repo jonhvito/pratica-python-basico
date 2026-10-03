@@ -1,4 +1,4 @@
-const cacheName = "python-de-cabeca-v6";
+const cacheName = "python-de-cabeca-v7";
 const shell = [
   "./",
   "./index.html",

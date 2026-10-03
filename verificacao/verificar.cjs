@@ -148,6 +148,15 @@ async function checked() {
   await evaluate("(() => { const search = document.getElementById('exercise-search'); search.value = ''; search.dispatchEvent(new Event('input', {bubbles:true})); })()");
   console.log("OK: entrada de aprendizagem sem data de prova, consulta corrigida, busca sem acentos e estado vazio seguro.");
 
+  await select("sintaxe-indentacao");
+  for (const width of [1365, 390]) {
+    await send("Emulation.setDeviceMetricsOverride", { width, height: 844, deviceScaleFactor: 1, mobile: width === 390 });
+    assert.equal(await evaluate("(() => { const options=[...document.querySelectorAll('.choice-text')]; return options.every(node=>getComputedStyle(node).whiteSpace==='pre-wrap') && options[0].textContent==='if x > 0:\\nprint(x)' && options[2].textContent==='if x > 0:\\n    print(x)'; })()"), true);
+    assert.equal(await evaluate("document.documentElement.scrollWidth <= window.innerWidth"), true);
+  }
+  await send("Emulation.setDeviceMetricsOverride", { width: 1365, height: 1000, deviceScaleFactor: 1, mobile: false });
+  console.log("OK: alternativas preservam linhas e indentação no computador e no celular.");
+
   await select("mesa_range");
   await input("2\n4\n6");
   await checked();
@@ -482,7 +491,7 @@ async function checked() {
   await send("Page.navigate", { url: "http://127.0.0.1:" + offlinePort + "/index.html" });
   await waitFor(() => evaluate("document.querySelectorAll('.exercise-link').length === 136"), "página servida por HTTP");
   await waitFor(() => evaluate("navigator.serviceWorker.ready.then(() => true)"), "service worker pronto");
-  await waitFor(() => evaluate("caches.has('python-de-cabeca-v6')"), "cache offline preenchido");
+  await waitFor(() => evaluate("caches.has('python-de-cabeca-v7')"), "cache offline preenchido");
   await send("Network.emulateNetworkConditions", { offline: true, latency: 0, downloadThroughput: 0, uploadThroughput: 0 });
   await send("Page.reload", { ignoreCache: true });
   await waitFor(() => evaluate("document.querySelectorAll('.exercise-link').length === 136"), "recarga offline", 20000);
