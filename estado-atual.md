@@ -10,7 +10,9 @@ O progresso usa a chave `python-de-cabeca-v1` do `localStorage`, com estado na v
 
 ## Manutenção
 
-`AGENTS.md` aponta para este registro e exige atualizar o estado atual em toda alteração de código, no mesmo commit. Os commits devem ser curtos, descritivos e separados por finalidade. O objetivo de manutenção é aprendizagem contínua, com preservação dos dados existentes e abertura sem build.
+`AGENTS.md` aponta para este registro e exige sua atualização em toda alteração de código, interface, configuração, testes ou diretrizes, inclusive correções pequenas e refatorações. Cada commit deve conter seu próprio registro, com data, mudanças, motivo, áreas afetadas, validação e pendências. A descrição do funcionamento atual deve continuar coerente com o código.
+
+Os commits seguem Conventional Commits, com prefixo convencional, descrição em português e título descritivo de até 72 caracteres. O corpo é escrito em português, em tópicos sobre as mudanças e seus efeitos, seguido de `Validação:` com comandos e resultados reais. Mudanças independentes são separadas por finalidade; alterações incompatíveis incluem indicação e migração. O objetivo de manutenção é aprendizagem contínua, com preservação dos dados existentes e abertura sem build.
 
 As alterações foram separadas em diretrizes de manutenção, regras de progresso e backup, editor e diagnóstico, e integração da experiência de aprendizagem. Cada etapa atualiza este registro.
 
@@ -60,3 +62,14 @@ O verificador usa um perfil temporário do sistema para evitar a sincronização
 ## Limites atuais
 
 O progresso é local ao navegador, sem conta ou sincronização automática. A correção Python depende do carregamento do CDN; o cache da interface não garante o interpretador offline. O limite de execução continua em quatro segundos. Domínio e dicas são indicadores de estudo; os casos de teste e as verificações estruturais não provam correção para todas as entradas possíveis.
+
+## Registro de alterações
+
+### 02/10/2026 — Diretrizes de estado e commits
+
+- **O que foi feito:** explicitação da atualização obrigatória de `estado-atual.md` no mesmo commit de cada mudança, inclusive etapas separadas.
+- **Motivo:** manter a documentação coerente com o projeto e facilitar entender sua evolução e manutenção.
+- **Áreas afetadas:** `AGENTS.md` e a seção de manutenção deste registro; nenhuma alteração no comportamento da aplicação.
+- **Commits:** adoção explícita de Conventional Commits, títulos curtos e descritivos em português, corpo em tópicos e bloco de validação com resultados reais. O guia inclui um exemplo de mensagem e orientação para mudanças incompatíveis.
+- **Validação:** `git diff --check` aprovado; leitura dos dois documentos para conferir coerência. Testes da aplicação não foram repetidos porque a mudança é exclusivamente documental; os resultados da implementação anterior estão na seção de validação.
+- **Pendências:** nenhuma para esta revisão documental.
