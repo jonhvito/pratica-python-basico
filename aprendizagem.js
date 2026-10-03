@@ -147,6 +147,94 @@
     return bugChallenges[exercise.id] || null;
   }
 
+  const understanding = {
+    logica: { question: "Quais dados entram, o que muda durante a solução e qual resultado deve sair?", explanation: "Explique por que cada etapa depende da anterior. O que ficaria impossível se duas etapas fossem trocadas?", transfer: "Invente um problema cotidiano diferente que use a mesma sequência de entrada, transformação e resultado. Escreva os passos sem consultar a solução.", criterion: "Separei os dados, as transformações e o resultado.", example: "# obter os dados\n# transformar os dados\n# apresentar o resultado" },
+    sintaxe: { question: "Quais símbolos delimitam a instrução e quais linhas pertencem ao mesmo bloco?", explanation: "Escolha um símbolo ou recuo da resposta e explique seu papel para o interpretador.", transfer: "Escreva um bloco curto com outros nomes e outra mensagem. Marque onde o bloco começa e termina.", criterion: "Expliquei o papel dos delimitadores e da indentação.", example: 'if temperatura > 20:\n    print("quente")' },
+    variaveis: { question: "Qual valor cada nome referencia antes e depois da próxima atribuição?", explanation: "Acompanhe um nome em duas etapas e explique o que mudou: a referência, o objeto ou ambos?", transfer: "Crie um exemplo com duas reatribuições ou duas referências à mesma lista. Preveja o resultado antes de conferir.", criterion: "Acompanhei valores e referências sem confundir atribuição com comparação.", example: "pontos = 2\npontos = pontos + 1" },
+    tipos: { question: "Que tipo cada operação recebe e que tipo produz?", explanation: "Explique onde uma conversão é necessária e como o resultado mudaria sem ela.", transfer: "Troque um dado numérico por texto que representa um número. Compare as operações antes e depois da conversão.", criterion: "Identifiquei os tipos e justifiquei as conversões.", example: 'valor = int("4")' },
+    numeros: { question: "Em que ordem as operações acontecem? O resultado precisa de inteiro, decimal, quociente ou resto?", explanation: "Escolha uma expressão e explique a ordem do cálculo com valores concretos.", transfer: "Crie outra expressão com os mesmos operadores e novos valores. Preveja como os parênteses mudariam o resultado.", criterion: "Justifiquei operadores e ordem das operações.", example: "grupos = 14 // 3\nsobra = 14 % 3" },
+    strings: { question: "Quais posições do texto participam do resultado e quais limites ficam de fora?", explanation: "Mostre com um texto concreto quais caracteres são acessados ou transformados e por quê.", transfer: "Use um texto de outro tamanho, incluindo espaços ou maiúsculas. Preveja o comportamento antes de testar.", criterion: "Expliquei índices, limites ou transformações do texto.", example: 'palavra = "janela"\nparte = palavra[1:4]' },
+    entrada: { question: "Quantas leituras são necessárias e que tipo cada dado precisa ter após input()?", explanation: "Explique o caminho de um dado: texto lido, conversão, cálculo e saída.", transfer: "Crie um caso com outra entrada válida e preveja a saída exata, incluindo espaços e linhas.", criterion: "Relacionei cada leitura, conversão e saída ao dado correspondente.", example: "quantidade = int(input())\n# use quantidade no processamento" },
+    condicoes: { question: "Quais situações cada caminho cobre, especialmente no valor do limite?", explanation: "Justifique a ordem das condições e mostre um valor que percorre cada caminho.", transfer: "Crie casos imediatamente abaixo, no limite e acima de uma condição. Preveja o caminho de cada caso.", criterion: "Cobri os caminhos e justifiquei os valores de fronteira.", example: "if idade < 12:\n    # caminho abaixo do limite\n    pass" },
+    lacos: { question: "Qual é o primeiro passo, o que muda em cada volta e o que garante a parada?", explanation: "Acompanhe as primeiras duas voltas e explique o que acontece na última.", transfer: "Mude o tamanho ou os limites da repetição. Preveja quantas voltas haverá e um resultado antes de executar.", criterion: "Expliquei início, atualização, limite e término do laço.", example: "for item in itens:\n    # processe um item por volta\n    pass" },
+    acumuladores: { question: "O estado guarda uma soma, uma contagem ou outra informação? Qual deve ser seu valor inicial?", explanation: "Mostre o acumulador antes e depois de duas atualizações e explique o que cada mudança representa.", transfer: "Escolha dados em que somar valores e contar elementos produzam resultados diferentes. Explique qual operação o problema exige.", criterion: "Justifiquei o valor inicial e a atualização do acumulador.", example: "total = 0\n# atualize total durante a repetição" },
+    listas: { question: "É necessário acessar, percorrer ou modificar a lista? A lista recebida deve ser preservada?", explanation: "Explique como sua solução trata os elementos e o que acontece com a lista original.", transfer: "Crie casos com lista vazia, um elemento e elementos repetidos quando forem aceitos pelo enunciado. Preveja os resultados.", criterion: "Expliquei o tratamento dos elementos, limites e mutação.", example: "resultado = []\n# construa o resultado sem perder os dados de entrada" },
+    funcoes: { question: "O que a função recebe e qual valor precisa devolver para quem a chama?", explanation: "Descreva uma chamada concreta, relacionando cada argumento ao parâmetro e ao valor devolvido.", transfer: "Escreva uma nova chamada com outros argumentos válidos. Preveja o retorno e use-o em outra operação.", criterion: "Relacionei parâmetros, argumentos e retorno.", example: "def transforma(valor):\n    # calcule e devolva o resultado\n    pass" },
+    retorno: { question: "Em qual linha a função encerra e o que quem chamou recebe?", explanation: "Explique a diferença entre o valor devolvido e o texto mostrado. Há algum caminho que chega ao fim sem return?", transfer: "Use o retorno em uma atribuição e depois em outra operação. Compare com uma versão que apenas usa print().", criterion: "Distingui return, encerramento da função e print.", example: "def transforma(valor):\n    resultado = valor\n    return resultado" },
+    rastreamento: { question: "Qual instrução executa agora e quais valores ela altera antes da próxima linha?", explanation: "Mostre o estado antes e depois de duas instruções, incluindo somente as saídas realmente produzidas.", transfer: "Troque um valor inicial do código. Faça um novo teste de mesa e preveja a saída antes de executar.", criterion: "Acompanhei o estado e a saída na ordem real de execução.", example: "valor = 2\nvalor += 3\n# anote o estado após cada linha" },
+    depuracao: { question: "Qual é o menor caso que reproduz o problema e qual diferença ele mostra?", explanation: "Explique a causa do erro, a mudança que a corrigiu e por que ela resolve o caso observado.", transfer: "Crie um caso que passaria antes da correção e outro que revelaria o defeito. Guarde ambos para testar novas mudanças.", criterion: "Liguei a hipótese de causa à evidência e a um teste.", example: "# preveja o resultado de um caso pequeno\n# compare a previsão com a execução" }
+  };
+
+  function supportFor(exercise) {
+    const assigned = exerciseSkills[exercise.id] || exercise.skills || ["sintaxe"];
+    const focus = exercise.kind === "trace" ? "rastreamento" : assigned[0];
+    return understanding[focus] || understanding.logica;
+  }
+
+  function hintsFor(exercise) {
+    const support = supportFor(exercise);
+    const executable = exercise.kind === "program" || exercise.kind === "function";
+    return [
+      { title: "1 · Pergunta para começar", text: support.question },
+      { title: "2 · Pista conceitual", text: exercise.hint || support.question },
+      { title: "3 · Ponto de partida", text: executable ? "Complete este início justificando a próxima operação. Ele não é uma solução pronta." : "Acompanhe este exemplo curto e aplique o mesmo raciocínio à atividade.", code: executable && exercise.starter?.trim() ? exercise.starter.trimEnd() : support.example }
+    ];
+  }
+
+  function explanationPrompt(exercise) { return supportFor(exercise).explanation; }
+  function transferPrompt(exercise) { return supportFor(exercise).transfer; }
+  function rubricFor(exercise) {
+    return [supportFor(exercise).criterion, "Usei um exemplo concreto para sustentar minha explicação.", "Previ e conferi um caso diferente sem consultar a solução."];
+  }
+
+  const projects = {
+    "curso-frequencias": {
+      title: "Projeto · Relatório de frequências",
+      briefing: "Você recebeu uma lista de códigos inteiros e precisa resumir quantas vezes cada código aparece. Entregue frequencias(valores): as chaves do dicionário são os inteiros convertidos para strings, e os valores são as contagens. Uma lista vazia produz {}.",
+      steps: [
+        "Plano: descreva como transformar uma lista em um relatório, o que precisa ser guardado durante o percurso e qual informação muda a cada elemento.",
+        "Casos: antes de escrever a função, invente três listas e anote os dicionários esperados. Inclua repetição e ao menos um caso de fronteira.",
+        "Implementação: escreva a função sem consultar a solução. Execute seus casos próprios, compare com suas previsões e depois confira os casos da atividade.",
+        "Explicação: justifique por que a soma das contagens deve ser igual ao tamanho da lista. Use essa relação para conferir um conjunto de dados novo."
+      ],
+      edgeCases: [
+        "Lista vazia: [] deve produzir {}.",
+        "Um código repetido: [5, 5, 5] deve produzir {'5': 3}.",
+        "Negativos e zero: [-2, 0, -2] deve produzir {'-2': 2, '0': 1}; a ordem das chaves não muda o relatório."
+      ],
+      rubric: [
+        "Defini o contrato e previ os casos antes de executar.",
+        "Minha função retorna chaves de texto e contagens coerentes, inclusive para a lista vazia.",
+        "Expliquei como cada elemento contribui para o relatório e conferi a soma das contagens em um caso novo."
+      ]
+    },
+    "curso-medias-filiais": {
+      title: "Projeto · Resumo de vendas por filial",
+      briefing: "Organize o resumo de uma rede de filiais. Entregue medias(vendas), recebendo {'filial': {'produto': [valores]}} e devolvendo os mesmos nomes e níveis, com a média em lugar de cada lista. Para uma lista vazia, use 0. Não junte produtos ou filiais diferentes.",
+      steps: [
+        "Plano: desenhe os níveis filial, produto e valores. Descreva qual parte do resultado será construída em cada nível e como uma lista vazia será tratada.",
+        "Casos: monte duas filiais com produtos distintos e calcule as médias à mão. Acrescente uma lista vazia e preveja o resultado antes da execução.",
+        "Implementação: escreva medias(vendas) sem consultar a solução. Execute seus dados, confira cada produto separadamente e depois verifique os casos da atividade.",
+        "Explicação: mostre por que uma alteração nos dados de um produto deve afetar somente sua média. Modifique uma lista e preveja quais partes do resumo continuarão iguais."
+      ],
+      edgeCases: [
+        "Nenhuma filial: {} deve produzir {}.",
+        "Filial sem produtos: {'oeste': {}} deve preservar {'oeste': {}}.",
+        "Produtos distintos: {'leste': {'cha': [2, 6], 'bolo': []}} deve produzir {'leste': {'cha': 4, 'bolo': 0}}."
+      ],
+      rubric: [
+        "Decompus os níveis da estrutura e previ médias antes de executar.",
+        "Preservei os nomes de filiais e produtos, tratando listas vazias com 0.",
+        "Expliquei uma mudança isolada nos dados e conferi que as outras médias continuam iguais."
+      ]
+    }
+  };
+
+  function projectFor(exercise) {
+    const project = projects[exercise?.id];
+    return project ? { ...project, steps: project.steps.slice(), edgeCases: project.edgeCases.slice(), rubric: project.rubric.slice() } : null;
+  }
+
   function diagnosis(result, exercise, code) {
     const failedIndex = result?.cases?.findIndex(test => test.pass === false) ?? -1;
     const failedCase = failedIndex >= 0 ? result.cases[failedIndex] : null;
@@ -197,6 +285,11 @@
     materialize,
     fadedCode,
     bugFor,
+    hintsFor,
+    explanationPrompt,
+    transferPrompt,
+    rubricFor,
+    projectFor,
     diagnosis
   };
 })();

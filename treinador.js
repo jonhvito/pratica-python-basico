@@ -931,7 +931,7 @@
       }
       if (item.error) appendError(details, item.error);
       else {
-        details.append(window.CodeEditor.comparison(item.expected, item.got));
+        details.append(window.CodeEditor.comparison(item.expected, item.got, item));
         if (item.got === "None" && !item.pass && exercise.kind === "function") details.append(element("p", "A função devolveu None. Faltou return? print() não devolve o resultado."));
         if (item.changed) details.append(element("p", "A lista recebida foi alterada. Crie outra lista para devolver."));
         if (item.stdout) details.append(element("pre", "Seu print mostrou (não é o retorno):\n" + item.stdout));

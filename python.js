@@ -6,7 +6,7 @@
   function pythonWorker() {
     const base = "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/";
     const harness = `
-import ast, builtins, contextlib, copy, io, json, math, reprlib, traceback
+import ast, builtins, contextlib, copy, io, json, math, traceback
 
 def _normalize(text):
     return "\\n".join(line.rstrip() for line in text.replace("\\r\\n", "\\n").split("\\n")).rstrip("\\n")
@@ -28,6 +28,17 @@ def _error(exc):
         if frame.filename == "<resposta>":
             line = frame.lineno
     return {"kind": type(exc).__name__, "message": str(exc)[:1200], "line": line}
+
+def _display(value, representation=False):
+    text = repr(value) if representation else str(value)
+    return {"text": text[:8000], "truncated": len(text) > 8000, "length": len(text)}
+
+def _values(actual, expected, representation=False):
+    got = _display(actual, representation)
+    wanted = _display(expected, representation)
+    return {"got": got["text"], "expected": wanted["text"],
+            "gotTruncated": got["truncated"], "expectedTruncated": wanted["truncated"],
+            "gotLength": got["length"], "expectedLength": wanted["length"]}
 
 class _Output(io.StringIO):
     def write(self, value):
@@ -83,7 +94,7 @@ def _check(payload):
                     passed = _equal(actual, case["expected"])
                     changed = bool(exercise.get("preserveArgs") and args != case["args"])
                     passed = passed and not changed
-                    result = {"pass": passed, "got": reprlib.repr(actual), "expected": repr(case["expected"]), "changed": changed}
+                    result = dict(_values(actual, case["expected"], True), **{"pass": passed, "changed": changed})
                 else:
                     actual = _normalize(output.getvalue())
                     expected = _normalize(case["expected"])
@@ -94,12 +105,74 @@ def _check(payload):
                             passed = False
                     else:
                         passed = actual == expected
-                    result = {"pass": passed, "got": actual, "expected": expected}
+                    result = dict(_values(actual, expected), **{"pass": passed})
                 result["stdout"] = output.getvalue() if exercise["kind"] == "function" else ""
                 results.append(result)
         except BaseException as exc:
-            results.append({"pass": False, "error": _error(exc), "expected": repr(case["expected"]) if exercise["kind"] == "function" else case["expected"]})
+            expected = _display(case["expected"], exercise["kind"] == "function")
+            results.append({"pass": False, "error": _error(exc), "expected": expected["text"],
+                            "expectedTruncated": expected["truncated"], "expectedLength": expected["length"]})
     return {"cases": results, "rules": rules, "pass": not rules and all(result["pass"] for result in results)}
+
+def _experiment(payload):
+    # Caso exploratório: executa a resposta e apresenta a observação, sem nota ou domínio.
+    exercise = payload["exercise"]
+    output = _Output()
+    phase = "code"
+    try:
+        if exercise.get("kind") not in ("program", "function"):
+            raise ValueError("Casos próprios estão disponíveis para programas e funções.")
+        tree = ast.parse(payload["code"], filename="<resposta>")
+        compiled = compile(tree, "<resposta>", "exec")
+        options = payload.get("options", {})
+        supplied = options.get("inputs", [])
+        if isinstance(supplied, str):
+            supplied = supplied.replace("\\r\\n", "\\n").split("\\n") if supplied else []
+        if not isinstance(supplied, list) or any(not isinstance(value, str) for value in supplied):
+            raise ValueError("Forneça as entradas como linhas de texto.")
+        inputs = iter(supplied)
+        def read_input(prompt=""):
+            try:
+                return next(inputs)
+            except StopIteration:
+                raise EOFError("Seu código pediu mais entradas do que as linhas fornecidas.") from None
+        environment = {"__name__": "__main__", "__builtins__": dict(vars(builtins), input=read_input)}
+        args = []
+        if exercise["kind"] == "function":
+            phase = "arguments"
+            if "arguments" in options:
+                arguments = options["arguments"]
+                if not isinstance(arguments, str) or len(arguments) > 8000:
+                    raise ValueError("Use até 8.000 caracteres nos argumentos.")
+                # O parser aceita literais Python separados por vírgulas. Nenhuma chamada é avaliada.
+                call = ast.parse("_argumentos(" + arguments + ")", mode="eval").body
+                if not isinstance(call, ast.Call) or not isinstance(call.func, ast.Name) or call.func.id != "_argumentos" or call.keywords:
+                    raise ValueError("Forneça apenas argumentos posicionais em valores literais Python.")
+                args = [ast.literal_eval(value) for value in call.args]
+            else:
+                args = copy.deepcopy(options.get("args", []))
+                if not isinstance(args, list):
+                    raise ValueError("Forneça os argumentos em uma lista.")
+        phase = "code"
+        with contextlib.redirect_stdout(output), contextlib.redirect_stderr(output):
+            exec(compiled, environment)
+            if exercise["kind"] == "function":
+                function = environment.get(exercise["fn"])
+                if not callable(function):
+                    raise NameError("Defina a função " + exercise["fn"] + " com o nome pedido.")
+                actual = function(*args)
+            else:
+                actual = output.getvalue()
+        display = _display(actual, exercise["kind"] == "function")
+        return {"got": display["text"], "gotTruncated": display["truncated"], "gotLength": display["length"],
+                "stdout": output.getvalue() if exercise["kind"] == "function" else ""}
+    except BaseException as exc:
+        error = _error(exc)
+        error["context"] = phase
+        if phase == "arguments":
+            error["line"] = None
+        return {"error": error, "got": output.getvalue() if exercise.get("kind") == "program" else "",
+                "stdout": output.getvalue() if exercise.get("kind") == "function" else ""}
 `;
 
     let python;
@@ -114,7 +187,8 @@ def _check(payload):
       try {
         await ready;
         python.globals.set("_payload_json", JSON.stringify(event.data.payload));
-        const result = JSON.parse(python.runPython("json.dumps(_check(json.loads(_payload_json)), ensure_ascii=False)"));
+        const method = event.data.mode === "experiment" ? "_experiment" : "_check";
+        const result = JSON.parse(python.runPython("json.dumps(" + method + "(json.loads(_payload_json)), ensure_ascii=False)"));
         self.postMessage({ type: "result", id: event.data.id, result });
       } catch (error) {
         self.postMessage({ type: "error", id: event.data.id, message: String(error) });
@@ -189,18 +263,22 @@ def _check(payload):
     request.reject(new Error("Falha no interpretador: " + detail));
   }
 
-  window.PythonRunner = {
-    setStatus(callback) { onStatus = callback; },
-    async run(exercise, code) {
+  async function execute(mode, payload) {
       try { await boot(); } catch (error) { readyPromise = null; throw error; }
       if (!worker) throw new Error("Execução interrompida. Você pode tentar novamente.");
+      if (pending) throw new Error("Aguarde a execução atual terminar antes de iniciar outra.");
       return new Promise((resolve, reject) => {
         const id = ++sequence;
         pending = { id, resolve, reject };
         timer = setTimeout(() => reset("Execução interrompida após 4 segundos. Confira se o laço termina e tente de novo."), 4000);
-        worker.postMessage({ id, payload: { exercise, code } });
+        worker.postMessage({ id, mode, payload });
       });
-    },
+  }
+
+  window.PythonRunner = {
+    setStatus(callback) { onStatus = callback; },
+    run(exercise, code) { return execute("check", { exercise, code }); },
+    experiment(exercise, code, options = {}) { return execute("experiment", { exercise, code, options }); },
     stop() { reset("Execução interrompida. Seu código continua salvo para você corrigir."); }
   };
 })();

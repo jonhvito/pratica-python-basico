@@ -75,23 +75,34 @@
     return node;
   }
 
-  function comparison(expected, got) {
+  function comparisonState(expected, got, options = {}) {
+    const difference = firstDifference(String(expected ?? ""), String(got ?? ""));
+    // A aprovação usa a comparação de valores do interpretador, não sua representação textual.
+    return { difference: options.pass === true ? null : difference, approved: options.pass === true,
+      abbreviated: Boolean(options.expectedTruncated || options.gotTruncated) };
+  }
+
+  function comparison(expected, got, options = {}) {
     const wanted = String(expected ?? "");
     const actual = String(got ?? "");
-    const difference = firstDifference(wanted, actual);
+    const state = comparisonState(wanted, actual, options);
+    const difference = state.difference;
     const section = element("section", undefined, "output-comparison");
 
     function appendFullResults() {
       const details = element("details", undefined, "comparison-full");
-      details.append(element("summary", "Ver resultados completos"));
+      details.append(element("summary", state.abbreviated ? "Ver resultados apresentados" : "Ver resultados completos"));
       const columns = element("div", undefined, "comparison-values");
-      for (const [label, value] of [["Esperado", wanted], ["Obtido", actual]]) {
+      for (const [label, value, sourceTruncated, sourceLength] of [["Esperado", wanted, options.expectedTruncated, options.expectedLength], ["Obtido", actual, options.gotTruncated, options.gotLength]]) {
         const column = element("div");
         const output = boundedOutput(value);
         column.append(element("strong", label, "comparison-label"));
         if (!value) column.append(element("p", "Saída vazia.", "comparison-note"));
         column.append(element("pre", output.text));
-        if (output.truncated) column.append(element("p", "Exibidos os primeiros 8.000 de " + output.length + " caracteres.", "comparison-note"));
+        if (output.truncated || sourceTruncated) {
+          const length = Number.isInteger(sourceLength) && sourceLength >= output.length ? sourceLength : output.length;
+          column.append(element("p", "Resultado abreviado: exibidos os primeiros 8.000" + (length > 8000 ? " de " + length : "") + " caracteres.", "comparison-note"));
+        }
         columns.append(column);
       }
       details.append(columns);
@@ -99,9 +110,16 @@
     }
 
     if (!difference) {
-      section.append(element("p", "Esperado e obtido: mesmos valores apresentados.", "comparison-match"));
-      const preview = boundedOutput(wanted || "(saída vazia)", 2400);
-      section.append(element("pre", preview.text + (preview.truncated ? "\n… prévia abreviada" : "")));
+      const message = state.approved ? "Caso aprovado: os valores atendem à comparação pedida." :
+        options.pass === false ? (state.abbreviated ? "Os trechos apresentados coincidem, mas o caso não foi aprovado. Resultados abreviados podem esconder diferenças após o limite de apresentação." : "As representações apresentadas coincidem, mas o caso não foi aprovado. Confira os critérios e as restrições do exercício.") :
+        state.abbreviated ? "Os trechos apresentados coincidem; há resultados abreviados." : "Esperado e obtido: mesmos valores apresentados.";
+      section.append(element("p", message, state.approved || options.pass !== false ? "comparison-match" : "comparison-note"));
+      if (wanted === actual) {
+        const preview = boundedOutput(wanted || "(saída vazia)", 2400);
+        section.append(element("pre", preview.text + (preview.truncated || state.abbreviated ? "\n… prévia abreviada" : "")));
+      } else {
+        section.append(element("p", "A ordem de apresentação ou a precisão numérica pode variar sem alterar a aprovação.", "comparison-note"));
+      }
       appendFullResults();
       return section;
     }
@@ -218,7 +236,7 @@
     };
   }
 
-  const api = { attach, comparison, helpers: { keyboardEdit, firstDifference, lineDifference, visibleWhitespace, boundedOutput } };
+  const api = { attach, comparison, helpers: { keyboardEdit, firstDifference, lineDifference, visibleWhitespace, boundedOutput, comparisonState } };
   root.CodeEditor = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 
 global.window = global;
-for (const name of ['exercicios', 'curriculo', 'aprendizagem']) require(path.join(__dirname, '..', name + '.js'));
+for (const name of ['exercicios', 'curriculo', 'professor', 'aprendizagem']) require(path.join(__dirname, '..', name + '.js'));
 const { helpers } = require('../editor.js');
 
 function edit(value, key, position = value.length, end = position) {
@@ -31,6 +31,67 @@ assert.equal(helpers.visibleWhitespace('a \tb\r'), 'a·⇥b␍');
 assert.deepEqual(helpers.boundedOutput(' 1\n2\n<script>\t\n'), { text: ' 1\n2\n<script>\t\n', truncated: false, length: 15 });
 assert.deepEqual(helpers.boundedOutput('🐍'.repeat(8000)), { text: '🐍'.repeat(8000), truncated: false, length: 8000 });
 assert.deepEqual(helpers.boundedOutput('🐍'.repeat(8001)), { text: '🐍'.repeat(8000), truncated: true, length: 8001 });
+assert.deepEqual(helpers.comparisonState('2.0', '2', { pass: true }), { difference: null, approved: true, abbreviated: false });
+assert.equal(helpers.comparisonState("{'a': 1, 'b': 2}", "{'b': 2, 'a': 1}", { pass: true }).difference, null);
+assert.equal(helpers.comparisonState('2.0', '2', { pass: false }).difference.column, 2);
+assert.deepEqual(helpers.comparisonState('[]', '[]', { pass: false }), { difference: null, approved: false, abbreviated: false });
+assert.equal(helpers.comparisonState('long', 'long', { gotTruncated: true }).abbreviated, true);
+
+// DOM mínimo para verificar a semântica do feedback, sem depender de um navegador.
+const { comparison } = require('../editor.js');
+global.document = { createElement(tag) { return { tag, textContent: '', children: [], append(...nodes) { this.children.push(...nodes); } }; } };
+function descendants(node) { return [node, ...node.children.flatMap(descendants)]; }
+const approved = descendants(comparison('2.0', '2', { pass: true }));
+assert.equal(approved.some(node => node.tag === 'mark'), false);
+assert.equal(approved.some(node => node.className === 'comparison-position'), false);
+assert.ok(approved.some(node => /Caso aprovado/.test(node.textContent)));
+const failedComparison = descendants(comparison('2.0', '2', { pass: false }));
+assert.ok(failedComparison.some(node => node.tag === 'mark'));
+const truncated = descendants(comparison('x'.repeat(8000), 'x'.repeat(8000), { pass: false, expectedTruncated: true, expectedLength: 9000, gotTruncated: true, gotLength: 9001 }));
+assert.ok(truncated.some(node => /8\.000 de 9001/.test(node.textContent)));
+assert.ok(truncated.some(node => /não foi aprovado/.test(node.textContent)));
+delete global.document;
+
+for (const exercise of EXERCISES) {
+  const hints = LEARNING_ENGINE.hintsFor(exercise);
+  assert.equal(hints.length, 3, exercise.id);
+  assert.equal(hints[1].text, exercise.hint, exercise.id);
+  assert.ok(hints[0].text && hints[2].code, exercise.id);
+  assert.ok(LEARNING_ENGINE.explanationPrompt(exercise).length > 20, exercise.id);
+  assert.ok(LEARNING_ENGINE.transferPrompt(exercise).length > 20, exercise.id);
+  assert.equal(LEARNING_ENGINE.rubricFor(exercise).length, 3, exercise.id);
+}
+
+const originalCatalogue = structuredClone(EXERCISES);
+const projects = EXERCISES.map(exercise => ({ exercise, project: LEARNING_ENGINE.projectFor(exercise) })).filter(item => item.project);
+assert.equal(EXERCISES.length, 136);
+assert.deepEqual(projects.map(item => item.exercise.id).sort(), ['curso-frequencias', 'curso-medias-filiais']);
+for (const { exercise, project } of projects) {
+  assert.equal(exercise.kind, 'function');
+  assert.match(project.briefing, new RegExp(exercise.fn + '\\('));
+  assert.equal(project.steps.length, 4);
+  assert.match(project.steps[0], /Plano/);
+  assert.match(project.steps[1], /antes.*(?:execut|execução|função)/);
+  assert.match(project.steps[2], /casos.*atividade/);
+  assert.match(project.steps[3], /Explicação/);
+  assert.equal(project.edgeCases.length, 3);
+  assert.equal(project.rubric.length, 3);
+  assert.ok(project.rubric.every(criterion => criterion.length > 30));
+  project.steps[0] = 'alterado'; project.edgeCases[0] = 'alterado'; project.rubric[0] = 'alterado';
+  const unchanged = LEARNING_ENGINE.projectFor(exercise);
+  assert.match(unchanged.steps[0], /Plano/);
+  assert.notEqual(unchanged.edgeCases[0], 'alterado');
+  assert.notEqual(unchanged.rubric[0], 'alterado');
+}
+const frequencyProject = LEARNING_ENGINE.projectFor(EXERCISES.find(exercise => exercise.id === 'curso-frequencias'));
+assert.match(frequencyProject.briefing, /strings/);
+assert.ok(frequencyProject.edgeCases.some(text => text.includes("{'-2': 2, '0': 1}")));
+const branchProject = LEARNING_ENGINE.projectFor(EXERCISES.find(exercise => exercise.id === 'curso-medias-filiais'));
+assert.match(branchProject.briefing, /lista vazia.*0/);
+assert.ok(branchProject.edgeCases.some(text => text.includes("{'oeste': {}}")));
+assert.equal(LEARNING_ENGINE.projectFor(EXERCISES.find(exercise => exercise.id === 'ola')), null);
+assert.equal(LEARNING_ENGINE.projectFor(null), null);
+assert.deepEqual(EXERCISES, originalCatalogue);
 
 const loopExercise = EXERCISES.find(ex => ex.id === 'tabuada');
 const loopResult = { pass: false, cases: [{ pass: false, expected: '2\n4', got: '3\n6' }] };
@@ -59,4 +120,4 @@ assert.match(errorTip.detail, /Caso 2.*Argumentos:.*Esperado:/);
 const changed = LEARNING_ENGINE.diagnosis({ pass: false, cases: [{ pass: false, changed: true, got: '[]', expected: '[]' }] }, EXERCISES.find(ex => ex.id === 'filtra_pares'), 'numeros.clear()');
 assert.equal(changed.key, 'mutacao');
 
-console.log('OK: recuo de Python, apagamento de recuo, localização de diferenças e dicas vinculadas ao primeiro caso que falhou.');
+console.log('OK: recuo, comparação semântica, diagnóstico, apoio gradual e dois projetos com plano, casos, implementação e explicação, preservando 136 atividades.');

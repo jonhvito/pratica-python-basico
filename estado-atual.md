@@ -54,7 +54,7 @@ A digitação agrupa gravações em 350 ms e grava imediatamente ao sair do camp
 
 ## Cache e publicação
 
-`service-worker.js` usa o cache `python-de-cabeca-v10`, incluindo `progresso.js`, `editor.js` e `armazenamento.js`. `.github/workflows/pages.yml` verifica os conjuntos de testes sem navegador e publica também os novos módulos. As fontes de manutenção e os artefatos de teste não entram na lista de arquivos públicos. Os commits desta revisão são locais; a publicação ocorre quando forem enviados para `main` no GitHub.
+`service-worker.js` usa o cache `python-de-cabeca-v11`, incluindo `progresso.js`, `editor.js` e `armazenamento.js`. `.github/workflows/pages.yml` verifica os conjuntos de testes sem navegador e publica também os novos módulos. As fontes de manutenção e os artefatos de teste não entram na lista de arquivos públicos. Os commits desta revisão são locais; a publicação ocorre quando forem enviados para `main` no GitHub.
 
 O cache remove somente versões antigas de `python-de-cabeca-v`; caches de outras aplicações da mesma origem são preservados. Os arquivos da versão instalada não são atualizados individualmente em segundo plano. Recursos ausentes sem rede recebem resposta controlada 503.
 
@@ -74,6 +74,14 @@ O verificador usa um perfil temporário do sistema para evitar a sincronização
 O progresso é local ao navegador, sem conta ou sincronização automática. A correção Python depende do carregamento do CDN; o cache da interface não garante o interpretador offline. O limite de execução continua em quatro segundos. Domínio e dicas são indicadores de estudo; os casos de teste e as verificações estruturais não provam correção para todas as entradas possíveis.
 
 ## Registro de alterações
+
+### 03/10/2026 — Representações coerentes e correção semântica
+
+- **O que foi feito:** representação consistente dos resultados Python até 8.000 caracteres, aviso explícito de truncamento e comparação sem destaque de erro quando o caso foi aprovado semanticamente; cache v11. Módulos de apoio oferecem dicas graduais, explicação, transferência e dois projetos sobre atividades existentes. O executor recebe uma API isolada para experimentar entradas próprias; esses recursos terão controles na interface na próxima etapa.
+- **Motivo:** listas aprovadas podiam parecer diferentes porque `reprlib` abreviava somente o resultado obtido; números tolerados e dicionários equivalentes não devem sugerir erro de formatação.
+- **Áreas afetadas:** `python.js`, `editor.js`, integração de comparação e testes do executor/editor. Soluções e contratos do catálogo preservados.
+- **Validação:** `node verificacao/python.cjs --emit-python | python -` aprovou 56 soluções, 90 variações, 47 leituras e 22 regressões; testes do editor, sintaxe, catálogo e diff aprovados. O comando direto com subprocesso encontrou `EPERM` no sandbox; o pipeline usa o Python local. Pyodide e interface serão conferidos na rodada integrada.
+- **Limites:** 8.000 caracteres continuam sendo o limite de apresentação, indicado quando atingido; a aprovação depende dos casos e regras do exercício. A API experimental não atribui domínio.
 
 ### 03/10/2026 — Proteção, recuperação e gravação do progresso
 
