@@ -48,7 +48,9 @@ O rodapé mantém três referências, que abrem em nova aba: [site do professor]
 
 ## Cache e publicação
 
-`service-worker.js` usa o cache `python-de-cabeca-v7`, incluindo `progresso.js` e `editor.js`. `.github/workflows/pages.yml` verifica os três conjuntos de testes sem navegador e publica também os novos módulos. As fontes de manutenção e os artefatos de teste não entram na lista de arquivos públicos. Os commits desta revisão são locais; a publicação ocorre quando forem enviados para `main` no GitHub.
+`service-worker.js` usa o cache `python-de-cabeca-v8`, incluindo `progresso.js` e `editor.js`. `.github/workflows/pages.yml` verifica os conjuntos de testes sem navegador e publica também os novos módulos. As fontes de manutenção e os artefatos de teste não entram na lista de arquivos públicos. Os commits desta revisão são locais; a publicação ocorre quando forem enviados para `main` no GitHub.
+
+O cache remove somente versões antigas de `python-de-cabeca-v`; caches de outras aplicações da mesma origem são preservados. Os arquivos da versão instalada não são atualizados individualmente em segundo plano. Recursos ausentes sem rede recebem resposta controlada 503.
 
 ## Validação
 
@@ -66,6 +68,14 @@ O verificador usa um perfil temporário do sistema para evitar a sincronização
 O progresso é local ao navegador, sem conta ou sincronização automática. A correção Python depende do carregamento do CDN; o cache da interface não garante o interpretador offline. O limite de execução continua em quatro segundos. Domínio e dicas são indicadores de estudo; os casos de teste e as verificações estruturais não provam correção para todas as entradas possíveis.
 
 ## Registro de alterações
+
+### 02/10/2026 — Cache isolado e atualização coerente
+
+- **O que foi feito:** limpeza apenas dos caches desta aplicação, leitura exclusiva da versão atual e manutenção do conjunto instalado até a próxima versão; cache v8.
+- **Motivo:** evitar apagar caches de outros aplicativos e combinar arquivos de versões diferentes numa atualização.
+- **Áreas afetadas:** `service-worker.js`, `verificacao/cache.cjs`, verificador de navegador e workflow de publicação.
+- **Validação:** `node --check service-worker.js`, `node --check verificacao/verificar.cjs`, `node verificacao/cache.cjs`, `node verificacao/conteudo.cjs` e `git diff --check`: aprovados. A simulação verificou preservação de cache alheio, instalação, ausência de atualização parcial e resposta offline 503.
+- **Limites:** a correção Python ainda depende do CDN; recarga offline real e atualização entre versões serão executadas na rodada integrada. O número do cache no verificador é lido do service worker.
 
 ### 02/10/2026 — Indentação nas alternativas
 

@@ -9,6 +9,7 @@ const { spawn } = require("node:child_process");
 const http = require("node:http");
 
 const root = path.resolve(__dirname, "..");
+const currentCacheName = fs.readFileSync(path.join(root, "service-worker.js"), "utf8").match(/const cacheName = "([^"]+)"/)[1];
 const artifacts = path.join(__dirname, "artefatos");
 for (const file of ["curriculo.js", "aprendizagem.js", "progresso.js", "editor.js", "treinador.js", "manifest.webmanifest", "service-worker.js", "icone.svg"]) {
   assert.ok(fs.existsSync(path.join(root, file)), "Arquivo necessário ausente: " + file);
@@ -491,7 +492,7 @@ async function checked() {
   await send("Page.navigate", { url: "http://127.0.0.1:" + offlinePort + "/index.html" });
   await waitFor(() => evaluate("document.querySelectorAll('.exercise-link').length === 136"), "página servida por HTTP");
   await waitFor(() => evaluate("navigator.serviceWorker.ready.then(() => true)"), "service worker pronto");
-  await waitFor(() => evaluate("caches.has('python-de-cabeca-v7')"), "cache offline preenchido");
+  await waitFor(() => evaluate("caches.has(" + JSON.stringify(currentCacheName) + ")"), "cache offline preenchido");
   await send("Network.emulateNetworkConditions", { offline: true, latency: 0, downloadThroughput: 0, uploadThroughput: 0 });
   await send("Page.reload", { ignoreCache: true });
   await waitFor(() => evaluate("document.querySelectorAll('.exercise-link').length === 136"), "recarga offline", 20000);

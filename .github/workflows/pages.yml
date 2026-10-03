@@ -24,6 +24,7 @@ jobs:
           node verificacao/conteudo.cjs
           node verificacao/progresso.cjs
           node verificacao/editor.cjs
+          node verificacao/cache.cjs
       - uses: actions/configure-pages@v5
       - name: Preparar arquivos públicos
         run: |
