@@ -1,9 +1,10 @@
 (function () {
   "use strict";
 
-  const exercises = window.EXERCISES;
   const engine = window.LEARNING_ENGINE;
   const curriculum = window.CURRICULUM;
+  const planning = window.PLANNING_ENGINE;
+  const exercises = planning.orderExercises(window.EXERCISES, curriculum.units);
   const byId = new Map(exercises.map(exercise => [exercise.id, exercise]));
   const $ = id => document.getElementById(id);
   const storageKey = "python-de-cabeca-v1";
@@ -63,13 +64,13 @@
       result.cases.every(item => item && typeof item.pass === "boolean") ? result : null;
   }
 
-  function normalizeDraft(value) {
+  function normalizeDraft(value, exercise) {
     return {
       code: typeof value?.code === "string" ? value.code : "",
       helped: !!value?.helped,
       result: validResult(value?.result),
       confidence: [1, 2, 3].includes(value?.confidence) ? value.confidence : null,
-      format: formats[value?.format] ? value.format : "write",
+      format: planning.safeFormat(exercise, value?.format),
       variantSeed: Number.isInteger(value?.variantSeed) && value.variantSeed >= 0 ? value.variantSeed : 0,
       roundAttempts: Number.isInteger(value?.roundAttempts) ? value.roundAttempts : 0,
       roundId: typeof value?.roundId === "string" && value.roundId ? value.roundId : newRoundId(),
@@ -87,6 +88,12 @@
     clean.mistakes = Array.isArray(value.mistakes) ? value.mistakes.filter(item => byId.has(item.exerciseId)).slice(-120) : [];
     clean.sessions = Array.isArray(value.sessions) ? value.sessions.slice(-100) : [];
     clean.streak = value.streak && typeof value.streak === "object" ? value.streak : clean.streak;
+    if (value.diagnostic && typeof value.diagnostic.sessionId === "string" && Number.isFinite(value.diagnostic.startedAt)) {
+      const answers = Object.entries(value.diagnostic.answers || {}).filter(([id, answer]) => byId.has(id)
+        && answer && typeof answer.pass === "boolean" && typeof answer.helped === "boolean" && Number.isFinite(answer.at));
+      clean.diagnostic = { sessionId: value.diagnostic.sessionId, startedAt: value.diagnostic.startedAt,
+        answers: Object.fromEntries(answers.map(([id, answer]) => [id, { pass: answer.pass, helped: answer.helped, at: answer.at }])) };
+    }
     return clean;
   }
 
@@ -128,7 +135,7 @@
       results: Object.fromEntries(ids.map(id => [id, validResult(coach.results?.[id])])),
       helped: Object.fromEntries(ids.map(id => [id, !!coach.helped?.[id]])),
       confidence: Object.fromEntries(ids.map(id => [id, [1, 2, 3].includes(coach.confidence?.[id]) ? coach.confidence[id] : null])),
-      formats: Object.fromEntries(ids.map(id => [id, formats[coach.formats?.[id]] ? coach.formats[id] : "write"])),
+      formats: Object.fromEntries(ids.map(id => [id, coach.type === "diagnostic" ? "write" : planning.safeFormat(byId.get(id), coach.formats?.[id])])),
       variants: Object.fromEntries(ids.map(id => [id, Number.isInteger(coach.variants?.[id]) ? coach.variants[id] : 0])),
       prepared: Object.fromEntries(ids.map(id => [id, typeof coach.prepared?.[id] === "string" ? coach.prepared[id] : ""])),
       paperTranscribing: Object.fromEntries(ids.map(id => [id, !!coach.paperTranscribing?.[id]])),
@@ -144,7 +151,7 @@
       if (!saved || typeof saved !== "object") return fresh;
       if (byId.has(saved.activeId)) fresh.activeId = saved.activeId;
       if (["practice", "coach", "exam"].includes(saved.lastMode)) fresh.lastMode = saved.lastMode;
-      for (const exercise of exercises) fresh.drafts[exercise.id] = normalizeDraft(saved.drafts?.[exercise.id]);
+      for (const exercise of exercises) fresh.drafts[exercise.id] = normalizeDraft(saved.drafts?.[exercise.id], exercise);
       fresh.exam = normalizeExam(saved.exam);
       fresh.coach = normalizeCoach(saved.coach);
       fresh.learning = normalizeLearning(saved.learning);
@@ -158,10 +165,10 @@
       };
       for (const exercise of exercises) {
         const item = fresh.drafts[exercise.id];
-        preserveSolvedRound(exercise.id, item.result, item.roundId, item.variantSeed, item.helped || ["fade", "bug", "recall"].includes(item.format));
+        preserveSolvedRound(exercise.id, item.result, item.roundId, item.variantSeed, item.helped || planning.usesFormatSupport(exercise, item.format));
       }
       if (fresh.coach) for (const id of fresh.coach.ids) {
-        preserveSolvedRound(id, fresh.coach.results[id], fresh.coach.roundIds[id], fresh.coach.variants[id], fresh.coach.helped[id] || ["fade", "bug", "recall"].includes(fresh.coach.formats[id]));
+        preserveSolvedRound(id, fresh.coach.results[id], fresh.coach.roundIds[id], fresh.coach.variants[id], fresh.coach.helped[id] || planning.usesFormatSupport(byId.get(id), fresh.coach.formats[id]));
       }
       if (fresh.exam) for (const id of fresh.exam.ids) {
         preserveSolvedRound(id, fresh.exam.results[id], "exam-" + fresh.exam.startedAt + "-" + id, fresh.exam.variants[id], false);
@@ -218,7 +225,7 @@
   }
 
   function draft(id) {
-    if (!state.drafts[id]) state.drafts[id] = normalizeDraft(null);
+    if (!state.drafts[id]) state.drafts[id] = normalizeDraft(null, byId.get(id));
     return state.drafts[id];
   }
 
@@ -263,18 +270,24 @@
 
   function renderContinueStudy() {
     const savedMode = state.lastMode;
+    const diagnosticDone = savedMode === "coach" && state.coach?.type === "diagnostic" && state.coach.finishedAt
+      && planning.summarizeDiagnostic(state.learning.diagnostic, exercises, curriculum.units).completed;
     const resumeCoach = savedMode === "coach" && state.coach && !state.coach.finishedAt;
     const resumeExam = savedMode === "exam" && state.exam && !state.exam.finishedAt;
     const id = resumeCoach ? state.coach.activeId : resumeExam ? state.exam.activeId : state.activeId;
     const hasActivity = state.learning.attempts.length || Object.values(state.drafts).some(item => item.code.trim()) || resumeCoach || resumeExam;
-    $("continue-study-button").textContent = hasActivity ? "Continuar de onde parei" : "Começar a aprender";
-    $("continue-study-text").textContent = hasActivity
+    $("continue-study-button").textContent = diagnosticDone ? "Montar treino recomendado" : hasActivity ? "Continuar de onde parei" : "Começar a aprender";
+    $("continue-study-text").textContent = diagnosticDone ? "Diagnóstico guardado. Próximo passo sugerido: " + focusUnit().title + ". Confirme essa estimativa na prática."
+      : hasActivity
       ? (resumeCoach ? "Sua sessão está guardada: " : resumeExam ? "Seu desafio está guardado: " : "Último exercício: ") + byId.get(id).title + "."
       : "Comece pelos fundamentos ou faça o diagnóstico para encontrar seu ponto de partida.";
   }
 
   function continueStudy() {
     if (busy) return;
+    if (state.lastMode === "coach" && state.coach?.type === "diagnostic" && state.coach.finishedAt) {
+      startCoach(true); $("exercise-title").focus(); return;
+    }
     if (state.lastMode === "coach" && state.coach && !state.coach.finishedAt) setMode("coach");
     else if (state.lastMode === "exam" && state.exam && !state.exam.finishedAt) setMode("exam");
     else { setMode("practice"); clearExerciseFilters(); }
@@ -329,7 +342,7 @@
 
   function helpedFor(id) {
     if (mode === "exam") return false;
-    return (mode === "coach" ? state.coach.helped[id] : draft(id).helped) || ["fade", "bug", "recall"].includes(formatFor(id));
+    return (mode === "coach" ? state.coach.helped[id] : draft(id).helped) || planning.usesFormatSupport(byId.get(id), formatFor(id));
   }
   function markHelp() {
     if (mode === "exam") return;
@@ -346,8 +359,8 @@
     save(); renderConfidence();
   }
   function formatFor(id) {
-    if (mode === "exam") return "write";
-    return mode === "coach" ? state.coach.formats[id] : draft(id).format;
+    if (mode === "exam" || isDiagnostic()) return "write";
+    return planning.safeFormat(byId.get(id), mode === "coach" ? state.coach.formats[id] : draft(id).format);
   }
   function isPaperTranscribing(id) {
     return mode === "coach" ? state.coach.paperTranscribing[id] : draft(id).paperTranscribing;
@@ -414,6 +427,11 @@
     result.learning = { mastery: record.mastery, dueAt: record.dueAt, firstTry, helped, confidence, credit: updated.credit, reason: creditMessages[updated.reason] || "A prática ficou registrada; o domínio e a revisão foram mantidos." };
     state.learning.attempts.push({ exerciseId: exercise.id, title: exercise.title, pass, helped, confidence, source: options.source || mode, mastery: record.mastery, credit: updated.credit, reason: updated.reason, roundId: options.roundId || roundIdFor(exercise.id), at: timestamp });
     state.learning.attempts = state.learning.attempts.slice(-400);
+    if (options.diagnosticSessionId) {
+      state.learning.diagnostic = planning.recordDiagnostic(state.learning.diagnostic, exercise, { pass, helped }, {
+        sessionId: options.diagnosticSessionId, now: timestamp
+      });
+    }
     updateStudyStreak(timestamp);
     return record;
   }
@@ -428,22 +446,15 @@
   }
 
   function skillScore(skillId) {
-    const ids = exercises.filter(exercise => engine.skillsFor(exercise.id).includes(skillId)).map(exercise => exercise.id);
-    if (!ids.length) return 0;
-    return Math.round(ids.reduce((total, id) => total + recordFor(id).mastery, 0) / ids.length);
+    return planning.skillStats(skillId, exercises, state.learning).autonomy;
   }
 
   function unitStats(unitId) {
-    const items = exercises.filter(exercise => exercise.unit === unitId);
-    const attempted = items.filter(exercise => recordFor(exercise.id).attempts > 0);
-    const mastery = attempted.length ? Math.round(attempted.reduce((sum, exercise) => sum + recordFor(exercise.id).mastery, 0) / attempted.length) : 0;
-    const target = Math.min(5, items.length);
-    const complete = attempted.length >= target && mastery >= 55;
-    return { total: items.length, attempted: attempted.length, mastery, target, complete };
+    return planning.unitStats(unitId, exercises, state.learning);
   }
 
   function focusUnit() {
-    return curriculum.units.find(unit => !unitStats(unit.id).complete) || curriculum.units[curriculum.units.length - 1];
+    return planning.focusUnit(curriculum.units, exercises, state.learning);
   }
 
   function unitUnlocked(unit) {
@@ -460,58 +471,33 @@
   }
 
   function recommendationReason(exercise) {
-    const record = recordFor(exercise.id);
-    if (record.dueAt && record.dueAt <= Date.now()) return "revisão vencida";
-    if (state.learning.mistakes.some(item => item.exerciseId === exercise.id && !item.resolvedAt)) return "erro ainda não revisado";
-    if (!record.attempts) return "conteúdo ainda não praticado";
-    return "um dos seus menores níveis de domínio";
+    return planning.recommendationReason(exercise, state.learning, { now: Date.now() });
   }
 
   function rankedExercises(onlyUnit = null) {
-    const now = Date.now();
-    const focus = focusUnit();
-    return exercises.filter(exercise => !onlyUnit || exercise.unit === onlyUnit).map((exercise, index) => {
-      const record = recordFor(exercise.id);
-      const unresolved = state.learning.mistakes.filter(item => item.exerciseId === exercise.id && !item.resolvedAt).length;
-      let priority = 0;
-      if (record.dueAt && record.dueAt <= now) priority += 1000 + Math.min(500, (now - record.dueAt) / day * 20);
-      priority += unresolved * 170;
-      priority += record.attempts ? 100 - record.mastery : 125;
-      const unitOrder = curriculum.unitById[exercise.unit].order;
-      if (!record.attempts && !onlyUnit) {
-        if (unitOrder === focus.order) priority += 500;
-        else if (unitOrder < focus.order) priority += 120;
-        else priority -= (unitOrder - focus.order) * 900;
-      }
-      priority += (index * 17 + Number(dateKey().replaceAll("-", ""))) % 19;
-      return { exercise, priority };
-    }).sort((a, b) => b.priority - a.priority);
+    return planning.rankedExercises(exercises, curriculum.units, state.learning, { now: Date.now(), onlyUnit });
   }
 
   function buildCoachSession(options = {}) {
-    let selected;
-    if (options.diagnostic) {
-      selected = curriculum.units.map(unit => {
-        const pool = exercises.filter(exercise => exercise.unit === unit.id);
-        return pool.find(exercise => exercise.kind === "choice") || pool.find(exercise => exercise.kind === "trace") || pool[0];
-      });
-    } else selected = rankedExercises(options.unitId || null).slice(0, 5).map(item => item.exercise);
+    const now = Date.now();
+    const selected = options.diagnostic ? planning.diagnosticExercises(exercises, curriculum.units)
+      : planning.selectSession(exercises, curriculum.units, state.learning, { now, onlyUnit: options.unitId || null }).map(item => item.exercise);
     const ids = [...new Set(selected.map(exercise => exercise.id))];
     const formatCycle = ["write", "bug", "fade", "write", "paper"];
     const formatsById = {};
     ids.forEach((id, index) => {
       const exercise = byId.get(id);
-      let format = formatCycle[index] || "write";
-      if (exercise.kind === "trace") format = "write";
+      let format = options.diagnostic ? "write" : planning.safeFormat(exercise, formatCycle[index] || "write");
       if (format === "bug" && !engine.bugFor(exercise)) format = "fade";
-      formatsById[id] = format;
+      formatsById[id] = planning.safeFormat(exercise, format);
     });
     const baseSeed = Number(dateKey().replaceAll("-", ""));
     state.coach = normalizeCoach({
-      id: String(Date.now()), type: options.diagnostic ? "diagnostic" : options.unitId ? "unit" : "adaptive", unitId: options.unitId || null,
-      ids, activeId: ids[0], startedAt: Date.now(), answers: {}, results: {}, helped: {}, confidence: {},
+      id: newRoundId(), type: options.diagnostic ? "diagnostic" : options.unitId ? "unit" : "adaptive", unitId: options.unitId || null,
+      ids, activeId: ids[0], startedAt: now, answers: {}, results: {}, helped: {}, confidence: {},
       formats: formatsById, variants: Object.fromEntries(ids.map((id, index) => [id, baseSeed + index])), prepared: {}, paperTranscribing: {}
     });
+    if (options.diagnostic) state.learning.diagnostic = { sessionId: state.coach.id, startedAt: now, answers: {} };
     save();
   }
 
@@ -537,12 +523,17 @@
   }
 
   function canReplaceCoach() {
-    return !state.coach || !!state.coach.finishedAt || !Object.values(state.coach.answers).some(answer => answer.trim()) || window.confirm("Iniciar outra sessão substituirá as respostas da sessão em andamento. Continuar?");
+    const recordedDiagnostic = state.coach?.type === "diagnostic" && state.learning.diagnostic?.sessionId === state.coach.id
+      && Object.keys(state.learning.diagnostic.answers).length > 0;
+    return !state.coach || !!state.coach.finishedAt || !recordedDiagnostic && !Object.values(state.coach.answers).some(answer => answer.trim())
+      || window.confirm("Iniciar outra sessão substituirá as respostas da sessão em andamento. Continuar?");
   }
 
   function finishCoachIfNeeded() {
     if (!state.coach || state.coach.finishedAt) return;
-    if (state.coach.ids.every(id => state.coach.results[id]?.pass)) {
+    const complete = state.coach.type === "diagnostic" ? state.coach.ids.every(id => diagnosticAnswer(id))
+      : state.coach.ids.every(id => state.coach.results[id]?.pass);
+    if (complete) {
       state.coach.finishedAt = Date.now();
       state.learning.sessions.push({ id: state.coach.id, startedAt: state.coach.startedAt, finishedAt: state.coach.finishedAt, count: state.coach.ids.length });
       state.learning.sessions = state.learning.sessions.slice(-100);
@@ -551,11 +542,25 @@
 
   function nextCoachItem() {
     if (busy) return;
+    if (isDiagnostic() && !diagnosticAnswer(activeId())) {
+      // Guardar um rascunho sem correção registra uma lacuna, sem tirar pontuação.
+      state.learning.diagnostic = planning.recordDiagnostic(state.learning.diagnostic, baseExercise(), { pass: false, helped: helpedFor(activeId()) }, {
+        sessionId: state.coach.id, now: Date.now()
+      });
+      finishCoachIfNeeded();
+    }
     const currentIndex = state.coach.ids.indexOf(activeId());
     const order = [...state.coach.ids.slice(currentIndex + 1), ...state.coach.ids.slice(0, currentIndex + 1)];
-    const next = order.find(id => !state.coach.results[id]?.pass);
+    const next = order.find(id => isDiagnostic() ? !diagnosticAnswer(id) : !state.coach.results[id]?.pass);
     if (next) navigate(next);
     else { finishCoachIfNeeded(); save(); render(); }
+  }
+
+  function isDiagnostic() { return mode === "coach" && state.coach?.type === "diagnostic"; }
+
+  function diagnosticAnswer(id) {
+    if (state.learning.diagnostic?.sessionId !== state.coach?.id) return null;
+    return state.learning.diagnostic.answers[id] || null;
   }
 
   function recordInput() {
@@ -567,6 +572,7 @@
     $("feedback").hidden = true;
     codeEditor.sync({ codeMode: ["program", "function"].includes(exercise.kind), errorLine: null });
     renderNavigation(); renderState();
+    renderCoachPanel();
   }
 
   function renderState() {
@@ -596,8 +602,12 @@
       button.setAttribute("aria-current", String(exercise.id === activeId()));
       const result = resultFor(exercise.id);
       const answered = answerFor(exercise.id).trim();
-      const mark = result?.pass ? "✓" : result ? "↺" : answered ? "·" : "";
-      button.setAttribute("aria-label", exercise.title + (result?.pass ? ", resolvido" : result ? ", para revisar" : ""));
+      const diagnostic = isDiagnostic() ? diagnosticAnswer(exercise.id) : null;
+      const independent = diagnostic?.pass && !diagnostic.helped;
+      const mark = isDiagnostic() ? diagnostic ? independent ? "✓" : "↺" : answered ? "·" : ""
+        : result?.pass ? "✓" : result ? "↺" : answered ? "·" : "";
+      button.setAttribute("aria-label", exercise.title + (isDiagnostic() ? diagnostic ? independent ? ", primeira resposta sem apoio" : ", lacuna registrada" : ""
+        : result?.pass ? ", resolvido" : result ? ", para revisar" : ""));
       button.append(element("span", String(index + 1).padStart(2, "0"), "exercise-number"), element("span", exercise.title), element("span", mark, "exercise-mark"));
       button.onclick = () => navigate(exercise.id);
       nav.append(button);
@@ -611,8 +621,9 @@
       if (selectedBounds.bottom > navBounds.bottom) nav.scrollTop += selectedBounds.bottom - navBounds.bottom;
       else if (selectedBounds.top < navBounds.top) nav.scrollTop -= navBounds.top - selectedBounds.top;
     }
-    const done = list.filter(exercise => mode === "exam" && !state.exam.finishedAt ? answerFor(exercise.id).trim() : resultFor(exercise.id)?.pass).length;
-    $("progress-label").textContent = mode === "exam" && !state.exam.finishedAt ? "Questões preenchidas" : mode === "coach" ? "Sessão concluída" : "Exercícios resolvidos";
+    const done = list.filter(exercise => isDiagnostic() ? diagnosticAnswer(exercise.id)
+      : mode === "exam" && !state.exam.finishedAt ? answerFor(exercise.id).trim() : resultFor(exercise.id)?.pass).length;
+    $("progress-label").textContent = isDiagnostic() ? "Primeiras respostas guardadas" : mode === "exam" && !state.exam.finishedAt ? "Questões preenchidas" : mode === "coach" ? "Etapas resolvidas" : "Exercícios resolvidos";
     $("progress-count").textContent = done + " / " + list.length;
     $("progress").max = list.length; $("progress").value = done;
     $("progress").setAttribute("aria-label", $("progress-label").textContent);
@@ -648,7 +659,7 @@
   function selectChoice(value) {
     if (busy) return;
     const restoreFocus = $("choice-options").contains(document.activeElement);
-    setAnswer(activeId(), value); setResult(activeId(), null); save(); renderChoice(currentExercise()); renderNavigation(); renderState();
+    setAnswer(activeId(), value); setResult(activeId(), null); save(); renderChoice(currentExercise()); renderNavigation(); renderState(); renderCoachPanel();
     if (restoreFocus) [...$("choice-options").querySelectorAll("button")].find(button => button.dataset.value === value)?.focus();
     $("selection-status").textContent = "Alternativa " + String.fromCharCode(65 + Number(value)) + " selecionada.";
   }
@@ -682,7 +693,7 @@
     const exercise = currentExercise(); const lines = orderValues(exercise); const target = index + direction;
     if (target < 0 || target >= lines.length) return;
     [lines[index], lines[target]] = [lines[target], lines[index]];
-    setAnswer(exercise.id, lines.join("\n")); setResult(exercise.id, null); save(); renderOrder(exercise); renderNavigation(); renderState();
+    setAnswer(exercise.id, lines.join("\n")); setResult(exercise.id, null); save(); renderOrder(exercise); renderNavigation(); renderState(); renderCoachPanel();
     const row = $("order-lines").children[target];
     const buttons = [...row.querySelectorAll("button")];
     (buttons.find(button => !button.disabled) || row).focus();
@@ -712,6 +723,10 @@
     const seed = variantSeedFor(exercise.id);
     $("variant-label").hidden = !seed || exercise.variantSeed === undefined;
     $("variant-label").textContent = seed ? "Variação " + String(seed).slice(-3) : "";
+    const prerequisites = planning.missingPrerequisites(exercise, exercises, curriculum.units, state.learning);
+    $("exercise-prerequisites").hidden = !prerequisites.length || isDiagnostic();
+    $("exercise-prerequisites").textContent = "Para preparar esta atividade, pratique: "
+      + prerequisites.map(id => byId.get(id)?.title || id).join("; ") + ". Você pode abrir qualquer atividade na prática livre.";
   }
 
   function challengeKey(id, format) { return format + ":" + variantSeedFor(id); }
@@ -765,11 +780,13 @@
 
   function applyFormat(format, userInitiated = true) {
     if (busy) return;
+    if (isDiagnostic()) return;
     const exercise = baseExercise();
     if (["choice", "order"].includes(exercise.kind)) return;
     if (exercise.kind === "trace" && format !== "write") {
       window.alert("Este exercício já é um teste de mesa. Use a tabela para acompanhar os valores."); return;
     }
+    format = planning.safeFormat(exercise, format);
     if (format === "bug" && !engine.bugFor(exercise)) format = "fade";
     const oldFormat = formatFor(exercise.id);
     const willReplace = ["bug", "fade", "recall"].includes(format);
@@ -786,7 +803,7 @@
     const exam = mode === "exam";
     const micro = ["choice", "order"].includes(exercise.kind);
     const format = formatFor(exercise.id);
-    $("format-tools").hidden = exam || micro;
+    $("format-tools").hidden = exam || micro || isDiagnostic();
     document.querySelectorAll(".format-button").forEach(button => {
       button.setAttribute("aria-pressed", String(button.dataset.format === format));
       button.disabled = busy || exercise.kind === "trace" && button.dataset.format !== "write";
@@ -837,21 +854,31 @@
     const coach = mode === "coach";
     $("coach-panel").hidden = !coach;
     if (!coach) return;
-    const done = state.coach.ids.filter(id => state.coach.results[id]?.pass).length;
-    const complete = done === state.coach.ids.length;
+    const diagnostic = isDiagnostic();
+    const done = state.coach.ids.filter(id => diagnostic ? diagnosticAnswer(id) : state.coach.results[id]?.pass).length;
+    const complete = diagnostic ? !!state.coach.finishedAt || done === state.coach.ids.length : done === state.coach.ids.length;
     const unit = state.coach.unitId ? curriculum.unitById[state.coach.unitId] : null;
     const sessionName = state.coach.type === "course" ? "Revisão de fundamentos" : state.coach.type === "diagnostic" ? "Diagnóstico da trilha" : unit ? "Treino · " + unit.short : "Seu treino do dia";
     $("coach-title").textContent = complete ? sessionName + " concluído" : sessionName;
-    if (complete) $("coach-description").textContent = state.coach.type === "diagnostic"
-      ? "Diagnóstico concluído. O mapa da trilha agora usa seus resultados para indicar por onde continuar."
+    if (complete) $("coach-description").textContent = diagnostic
+      ? "Diagnóstico guardado. Acertos, erros e respostas ainda não conhecidas ajudam a escolher o próximo passo."
       : "Você fechou a sequência. As revisões futuras já foram agendadas.";
-    else if (state.coach.type === "diagnostic") $("coach-description").textContent = "Uma questão curta de cada unidade, sem bloquear nenhum conteúdo.";
+    else if (diagnostic) $("coach-description").textContent = "11 atividades: 6 de escrita, 4 de leitura e 1 de ordenação. Verifique a primeira resposta ou marque Não sei ainda. Você pode continuar após um erro.";
     else if (state.coach.type === "course") $("coach-description").textContent = "12 questões para conectar estruturas, laços e funções e identificar o que merece mais prática.";
     else if (unit) $("coach-description").textContent = unit.description;
     else $("coach-description").textContent = "Questão atual: " + recommendationReason(baseExercise()) + ".";
-    $("coach-progress").textContent = done + " de " + state.coach.ids.length;
-    $("finish-coach-item").hidden = !resultFor(activeId())?.pass || complete;
-    $("new-coach").textContent = complete ? "Nova sessão" : "Remontar treino";
+    $("coach-progress").textContent = done + " de " + state.coach.ids.length + (diagnostic ? " guardadas" : "");
+    $("finish-coach-item").hidden = complete || !diagnostic && !resultFor(activeId())?.pass;
+    $("finish-coach-item").textContent = diagnostic ? diagnosticAnswer(activeId()) || resultFor(activeId()) ? "Guardar e continuar" : "Não sei ainda" : "Próxima questão";
+    $("new-coach").textContent = diagnostic ? complete ? "Montar treino recomendado" : "Recomeçar diagnóstico" : complete ? "Nova sessão" : "Remontar treino";
+    $("diagnostic-summary").hidden = !diagnostic || !complete;
+    if (diagnostic && complete) {
+      const summary = planning.summarizeDiagnostic(state.learning.diagnostic, exercises, curriculum.units);
+      $("diagnostic-summary").textContent = summary.completed ? summary.independent + " de " + summary.total
+        + " primeiras respostas corretas sem apoio. Próximo passo sugerido: " + focusUnit().title
+        + ". Esta estimativa é provisória: uma questão por unidade não comprova consolidação. Corrigir depois continua sendo prática e preserva a primeira resposta."
+        : "Esta sessão anterior não guardou as primeiras respostas. Seu progresso foi preservado; faça um novo diagnóstico para obter uma estimativa de ponto de partida.";
+    }
   }
 
   function render() {
@@ -864,7 +891,7 @@
     $("practice-mode").setAttribute("aria-pressed", String(mode === "practice"));
     $("exam-mode").setAttribute("aria-pressed", String(exam));
     $("exam-panel").hidden = !exam; renderCoachPanel();
-    const coachNote = state.coach?.type === "diagnostic" ? "O diagnóstico percorre as 11 unidades e calibra suas recomendações." : state.coach?.type === "unit" ? "Sessão focada em uma unidade da trilha." : "A ordem combina revisão, fraquezas e recuperação ativa.";
+    const coachNote = state.coach?.type === "diagnostic" ? "O diagnóstico guarda a primeira resposta. Errar ou marcar Não sei ainda permite continuar e indica o que praticar." : state.coach?.type === "unit" ? "Sessão focada em uma unidade da trilha." : "A sessão reserva espaço para revisão, recuperação de erros e avanço.";
     $("sidebar-note").textContent = exam ? (submitted ? "Correção liberada. Revise cada questão." : "Escreva as 6 respostas antes de corrigir.") : mode === "coach" ? coachNote : "Escolha livre ou deixe o treino do dia decidir por você.";
     const unit = curriculum.unitById[exercise.unit];
     $("exercise-meta").textContent = (exam ? "QUESTÃO " + (index + 1) + " · " : mode === "coach" ? "ETAPA " + (index + 1) + " · " : "") + String(unit.order).padStart(2, "0") + " · " + unit.title;
@@ -991,7 +1018,8 @@
     const submittedMode = mode;
     const submission = {
       source: mode, roundId: roundIdFor(exercise.id), helped: helpedFor(exercise.id), confidence: confidenceFor(exercise.id),
-      roundAttempts: mode === "practice" ? draft(exercise.id).roundAttempts : state.coach.roundAttempts[exercise.id]
+      roundAttempts: mode === "practice" ? draft(exercise.id).roundAttempts : state.coach.roundAttempts[exercise.id],
+      diagnosticSessionId: isDiagnostic() ? state.coach.id : null
     };
     setBusy(true); $("check-button").textContent = "Verificando…"; $("feedback").hidden = true;
     try {
@@ -1103,13 +1131,17 @@
   function renderCurriculum() {
     const focus = focusUnit();
     const focusStats = unitStats(focus.id);
+    const diagnostic = planning.summarizeDiagnostic(state.learning.diagnostic, exercises, curriculum.units);
     const recommendation = $("current-unit-card"); recommendation.replaceChildren();
     const recommendationText = element("div");
     recommendationText.append(
       element("p", "UNIDADE RECOMENDADA · " + String(focus.order).padStart(2, "0"), "eyebrow"),
       element("h3", focus.title),
-      element("p", focus.description + " " + focusStats.attempted + " de " + focusStats.target + " práticas-chave iniciadas.")
+      element("p", focus.description + " " + focusStats.attempted + " de " + focusStats.total + " atividades praticadas; "
+        + focusStats.independent + " com acerto sem apoio.")
     );
+    if (diagnostic.completed && !focusStats.complete) recommendationText.append(element("p",
+      "O diagnóstico também orienta este ponto de partida. A estimativa é provisória e será confirmada em mais atividades e revisões.", "small muted"));
     const recommendationButton = element("button", "Treinar esta unidade", "primary"); recommendationButton.type = "button";
     recommendationButton.onclick = () => { $("curriculum-dialog").close(); startUnit(focus.id); };
     recommendation.append(recommendationText, recommendationButton);
@@ -1117,14 +1149,20 @@
     const list = $("curriculum-list"); list.replaceChildren();
     curriculum.units.forEach(unit => {
       const stats = unitStats(unit.id); const unlocked = unitUnlocked(unit);
+      const provisional = diagnostic.completed && diagnostic.rows.some(row => row.unitId === unit.id && row.independent) && !stats.complete;
       const card = element("article", undefined, "curriculum-card" + (stats.complete ? " complete" : unit.id === focus.id ? " current" : ""));
       card.dataset.unit = unit.id;
       const heading = element("div", undefined, "curriculum-card-heading");
       const title = element("div");
       title.append(element("span", String(unit.order).padStart(2, "0"), "curriculum-number"), element("h3", unit.title));
-      const status = stats.complete ? "Consolidada" : unit.id === focus.id ? "Em foco" : unlocked ? "Disponível" : "Pré-requisito pendente";
+      const status = stats.complete ? "Consolidação inicial" : unit.id === focus.id ? "Em foco" : provisional ? "Estimativa do diagnóstico" : unlocked ? "Disponível" : "Preparar fundamentos";
       heading.append(title, element("span", status, "curriculum-status"));
-      const meter = element("div", undefined, "unit-meter"); const fill = element("span"); fill.style.width = stats.mastery + "%"; meter.append(fill);
+      const measures = element("div", undefined, "learning-measures");
+      [["Cobertura", stats.coverage], ["Indicador de autonomia", stats.autonomy]].forEach(([label, value]) => {
+        const measure = element("div"); const meter = element("div", undefined, "unit-meter");
+        const fill = element("span"); fill.style.width = value + "%"; meter.append(fill); meter.setAttribute("aria-hidden", "true");
+        measure.append(element("span", label + ": " + value + "%", "small"), meter); measures.append(measure);
+      });
       const concepts = element("ul", undefined, "concept-list"); unit.concepts.forEach(concept => concepts.append(element("li", concept)));
       const prerequisites = unit.prerequisites.length
         ? "Pré-requisitos: " + unit.prerequisites.map(id => curriculum.unitById[id].short).join(" + ")
@@ -1133,7 +1171,9 @@
       const open = element("button", "Ver " + stats.total + " exercícios", "quiet curriculum-open"); open.type = "button"; open.onclick = () => openUnit(unit.id);
       const train = element("button", "Treinar 5 etapas", "quiet curriculum-train"); train.type = "button"; train.onclick = () => { $("curriculum-dialog").close(); startUnit(unit.id); };
       actions.append(open, train);
-      card.append(heading, element("p", unit.description, "curriculum-description"), concepts, meter, element("p", stats.mastery + "% de domínio · " + stats.attempted + "/" + stats.target + " práticas-chave · " + prerequisites, "small muted"), actions);
+      card.append(heading, element("p", unit.description, "curriculum-description"), concepts, measures,
+        element("p", stats.attempted + "/" + stats.total + " atividades praticadas · " + stats.independent + " com acerto sem apoio. Meta inicial: "
+          + stats.target + " práticas, ao menos " + Math.min(3, stats.target) + " acertos sem apoio e indicador de 55%. " + prerequisites, "small muted"), actions);
       list.append(card);
     });
   }
@@ -1148,25 +1188,30 @@
 
   function renderLearningDashboard() {
     const attempts = state.learning.attempts; const passes = attempts.filter(item => item.pass).length;
-    const average = Math.round(exercises.reduce((sum, exercise) => sum + recordFor(exercise.id).mastery, 0) / exercises.length);
+    const overall = planning.stats(exercises, state.learning);
     const stats = [
       [String(attempts.length), "tentativas registradas"],
+      [overall.coverage + "%", "cobertura do catálogo"],
+      [overall.autonomy + "%", "indicador de autonomia"],
+      [String(overall.independent), "atividades com acerto sem apoio"],
       [attempts.length ? Math.round(passes / attempts.length * 100) + "%" : "—", "taxa de acerto"],
-      [average + "%", "domínio geral"],
       [String(state.learning.streak.days || 0), "dias na sequência"]
     ];
     const statsContainer = $("learning-stats"); statsContainer.replaceChildren();
     stats.forEach(([value, label]) => { const card = element("div", undefined, "stat-card"); card.append(element("strong", value), element("span", label)); statsContainer.append(card); });
-    const recommendation = rankedExercises()[0]?.exercise || exercises[0];
+    const recommendation = planning.selectSession(exercises, curriculum.units, state.learning, { now: Date.now() })[0]?.exercise || exercises[0];
     $("recommendation-title").textContent = recommendation.title;
-    $("recommendation-text").textContent = "Recomendado por ser " + recommendationReason(recommendation) + ". A sessão mistura cinco formatos e leva cerca de 15 minutos.";
+    $("recommendation-text").textContent = "Comece por " + recommendationReason(recommendation)
+      + ". Cinco atividades reservam espaço para revisões, recuperação de erros e conteúdo novo, conforme seu histórico. Erros repetidos na mesma atividade têm peso limitado.";
     const due = dueExercises().length; $("due-summary").textContent = due ? due + " revisão(ões) vencida(s)" : "Revisões em dia";
     const map = $("skill-map"); map.replaceChildren();
     engine.skills.forEach(skill => {
-      const score = skillScore(skill.id); const card = element("article", undefined, "skill-card");
-      const top = element("div", undefined, "skill-card-heading"); top.append(element("strong", skill.name), element("span", score + "%"));
-      const meter = element("div", undefined, "mastery-meter"); const fill = element("span"); fill.style.width = score + "%"; meter.append(fill);
-      card.append(top, meter, element("p", masteryStatus(score) + " · " + skill.description)); map.append(card);
+      const evidence = planning.skillStats(skill.id, exercises, state.learning); const card = element("article", undefined, "skill-card");
+      const top = element("div", undefined, "skill-card-heading"); top.append(element("strong", skill.name), element("span", evidence.autonomy + "%"));
+      const meter = element("div", undefined, "mastery-meter"); const fill = element("span"); fill.style.width = evidence.autonomy + "%"; meter.append(fill); meter.setAttribute("aria-hidden", "true");
+      card.append(top, meter, element("p", "Indicador de autonomia entre as atividades praticadas."),
+        element("p", "Cobertura: " + evidence.attempted + "/" + evidence.total + " (" + evidence.coverage + "%) · " + evidence.independent + " com acerto sem apoio."),
+        element("p", skill.description)); map.append(card);
     });
     const activity = $("recent-activity"); activity.replaceChildren();
     const recent = attempts.slice(-8).reverse();
@@ -1244,7 +1289,7 @@
     if (answerFor(id).trim() && !window.confirm("Apagar esta resposta e tentar novamente do zero?")) return;
     if (mode === "coach") {
       state.coach.answers[id] = ""; state.coach.results[id] = null; state.coach.helped[id] = false; state.coach.confidence[id] = null; state.coach.prepared[id] = ""; state.coach.paperTranscribing[id] = false;
-    } else state.drafts[id] = normalizeDraft({ variantSeed: draft(id).variantSeed, format: draft(id).format });
+    } else state.drafts[id] = normalizeDraft({ variantSeed: draft(id).variantSeed, format: draft(id).format }, byId.get(id));
     restartRound(id);
     prepareCurrentChallenge(); save(); render(); if (!$("editor-wrap").hidden) $("answer").focus();
   }
@@ -1337,7 +1382,11 @@
   $("coach-mode").onclick = () => startCoach(false);
   $("practice-mode").onclick = () => { setMode("practice"); save(); render(); };
   $("exam-mode").onclick = () => { if (!state.exam) createExam(); setMode("exam"); save(); render(); };
-  $("new-coach").onclick = () => { if (state.coach && !state.coach.finishedAt && !window.confirm("Remontar a sessão atual com novas prioridades?")) return; startCoach(true); };
+  $("new-coach").onclick = () => {
+    if (isDiagnostic() && !state.coach.finishedAt) { startDiagnostic(); return; }
+    if (state.coach && !state.coach.finishedAt && !window.confirm("Remontar a sessão atual com novas prioridades?")) return;
+    startCoach(true);
+  };
   $("finish-coach-item").onclick = nextCoachItem;
   $("new-exam").onclick = () => { if (!window.confirm("Gerar outro simulado? As respostas do simulado atual serão substituídas.")) return; createExam(state.exam?.course); render(); };
   $("course-exam-button").onclick = () => {

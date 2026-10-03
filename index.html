@@ -15,6 +15,7 @@
   <script defer src="python.js"></script>
   <script defer src="aprendizagem.js"></script>
   <script defer src="progresso.js"></script>
+  <script defer src="planejamento.js"></script>
   <script defer src="armazenamento.js"></script>
   <script defer src="editor.js"></script>
   <script defer src="treinador.js"></script>
@@ -76,6 +77,7 @@
           <p class="eyebrow">SESSÃO ADAPTATIVA</p>
           <strong id="coach-title">Seu treino do dia</strong>
           <p id="coach-description">Revisões vencidas, pontos fracos e uma questão nova em uma sequência curta.</p>
+          <p id="diagnostic-summary" class="diagnostic-summary" role="status" hidden></p>
         </div>
         <div class="coach-actions">
           <span id="coach-progress" class="session-progress"></span>
@@ -98,6 +100,7 @@
           <div id="skill-chips" class="skill-chips" aria-label="Habilidades praticadas"></div>
           <span id="variant-label" class="variant-label" hidden></span>
         </div>
+        <p id="exercise-prerequisites" class="prerequisite-note small" hidden></p>
         <div id="example" class="example"></div>
         <div id="trace" hidden><p class="field-label">Leia o código sem executar:</p><pre><code id="trace-code"></code></pre></div>
         <section id="choice-panel" class="choice-panel" hidden aria-label="Alternativas"><div id="choice-options"></div></section>
@@ -160,19 +163,20 @@
   </footer>
   <dialog id="curriculum-dialog" class="wide-dialog" aria-labelledby="curriculum-title">
     <div class="dialog-heading"><div><p class="eyebrow">DO FUNDAMENTO À AUTONOMIA</p><h2 id="curriculum-title">Trilha de aprendizagem</h2></div><button id="close-curriculum" class="quiet" aria-label="Fechar trilha">Fechar ✕</button></div>
-    <p class="muted">As unidades têm uma ordem pedagógica. Você pode abrir qualquer uma, mas o treino recomendado consolida os pré-requisitos antes de avançar.</p>
+    <p class="muted">As atividades seguem uma sequência pedagógica. O treino recomendado considera os pré-requisitos; a prática livre permite abrir qualquer atividade. Cobertura mostra quanto você praticou. O indicador de autonomia considera somente atividades já tentadas, com apoio e revisões levados em conta.</p>
     <section id="current-unit-card" class="recommended-card curriculum-recommendation"></section>
-    <div class="curriculum-actions"><button id="start-diagnostic" class="quiet">Fazer diagnóstico inicial</button><span class="small muted">11 questões · uma por unidade</span></div>
+    <div class="curriculum-actions"><button id="start-diagnostic" class="quiet">Fazer diagnóstico inicial</button><span class="small muted">11 atividades · escrita, leitura e ordenação · estimativa de ponto de partida</span></div>
     <div id="curriculum-list" class="curriculum-list"></div>
   </dialog>
   <dialog id="learning-dialog" class="wide-dialog" aria-labelledby="learning-title">
     <div class="dialog-heading"><div><p class="eyebrow">PAINEL LOCAL</p><h2 id="learning-title">Meu aprendizado</h2></div><button id="close-learning" class="quiet" aria-label="Fechar painel">Fechar ✕</button></div>
     <div id="learning-stats" class="stats-grid"></div>
+    <p class="small muted">Cobertura é a parcela do catálogo já tentada. O indicador de autonomia é a média entre as atividades praticadas: ele considera apoio e revisão, sem tratar conteúdo não tentado como erro. Acertos sem apoio mostram evidência independente. Esses indicadores orientam o estudo e não comprovam domínio completo de Python.</p>
     <section class="recommended-card">
       <div><p class="eyebrow">PRÓXIMO PASSO</p><h3 id="recommendation-title">Treino recomendado</h3><p id="recommendation-text"></p></div>
       <button id="start-recommended" class="primary">Começar sessão</button>
     </section>
-    <div class="section-heading"><div><h3>Mapa de domínio</h3><p>O nível considera tentativas, ajuda usada e revisões espaçadas. Repetir a mesma resposta não aumenta o domínio.</p></div><span id="due-summary" class="tag"></span></div>
+    <div class="section-heading"><div><h3>Cobertura e autonomia por habilidade</h3><p>Uma habilidade pode ter boa evidência em poucas atividades e ainda precisar de mais prática. Repetir a mesma resposta não aumenta a pontuação.</p></div><span id="due-summary" class="tag"></span></div>
     <div id="skill-map" class="skill-map"></div>
     <section class="history-section"><div class="section-heading"><div><h3>Atividade recente</h3><p>As tentativas ficam somente neste navegador.</p></div></div><div id="recent-activity" class="activity-list"></div></section>
   </dialog>

@@ -135,6 +135,16 @@
     return record;
   }
 
+  function resolvesMistake(previous = {}, updated = {}, options = {}, mistake = {}) {
+    if (options.pass !== true || options.helped === true || typeof options.roundId !== "string" || !count(options.variantSeed)) return false;
+    const seed = mistake.variantSeed === undefined ? 0 : mistake.variantSeed;
+    if (!count(seed) || options.variantSeed !== seed) return false;
+    const before = previous.roundHistory?.find(round => round.id === options.roundId);
+    const after = updated.roundHistory?.find(round => round.id === options.roundId);
+    // Resolver um erro não depende de crédito: os limites diários continuam protegendo o domínio.
+    return before?.completed !== true && after?.completed === true && after.helped === false;
+  }
+
   function invalid(path, detail) { throw new Error("Backup inválido em " + path + ": " + detail + "."); }
   function object(value, path) {
     if (!value || typeof value !== "object" || Array.isArray(value) || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) invalid(path, "esperado um objeto");
@@ -142,6 +152,11 @@
   }
   function array(value, path) { if (!Array.isArray(value)) invalid(path, "esperada uma lista"); return value; }
   function string(value, path) { if (typeof value !== "string") invalid(path, "esperado texto"); return value; }
+  function reflection(value, path) {
+    const text = string(value, path);
+    if (text.length > 8000) invalid(path, "texto maior que 8.000 caracteres");
+    return text;
+  }
   function boolean(value, path) { if (typeof value !== "boolean") invalid(path, "esperado verdadeiro ou falso"); return value; }
   function numeric(value, path, min = 0, max = Infinity, integer = false) {
     if (!finite(value) || value < min || value > max || (integer && !Number.isSafeInteger(value))) invalid(path, "número fora do intervalo permitido");
@@ -180,6 +195,7 @@
     const source = object(value, path), clean = {};
     for (const key of ["kind", "message"]) optional(source, clean, key, path, string);
     optional(source, clean, "line", path, (item, field) => item === null ? null : numeric(item, field, 1, Infinity, true));
+    optional(source, clean, "context", path, (item, field) => enumeration(item, field, ["code", "arguments"]));
     return clean;
   }
   function resultValue(value, path) {
@@ -190,6 +206,13 @@
       const field = path + ".cases[" + index + "]", current = object(item, field);
       const test = { pass: boolean(current.pass, field + ".pass") };
       for (const key of ["got", "expected", "stdout"]) optional(current, test, key, field, string);
+      for (const key of ["gotTruncated", "expectedTruncated"]) optional(current, test, key, field, boolean);
+      for (const key of ["gotLength", "expectedLength"]) optional(current, test, key, field, (number, location) => numeric(number, location, 0, Infinity, true));
+      for (const key of ["got", "expected"]) if (own(test, key) && own(test, key + "Length")) {
+        const length = Array.from(test[key]).length;
+        const total = test[key + "Length"];
+        if (total < length || (test[key + "Truncated"] === true && total <= length) || (test[key + "Truncated"] === false && total !== length)) invalid(field, "comprimento e abreviação do resultado inconsistentes");
+      }
       optional(current, test, "changed", field, boolean);
       optional(current, test, "error", field, errorValue);
       return test;
@@ -215,6 +238,9 @@
   function draftValue(value, path) {
     const source = object(value, path), clean = {};
     for (const key of ["code", "challengeKey", "roundId"]) optional(source, clean, key, path, string);
+    optional(source, clean, "reflection", path, reflection);
+    for (const key of ["experimentInput", "experimentPrediction"]) optional(source, clean, key, path, reflection);
+    optional(source, clean, "hintsLevel", path, (item, field) => numeric(item, field, 0, 3, true));
     for (const key of ["helped", "paperTranscribing"]) optional(source, clean, key, path, boolean);
     optional(source, clean, "result", path, resultValue);
     optional(source, clean, "confidence", path, (item, field) => enumeration(item, field, [1, 2, 3], true));
@@ -319,6 +345,18 @@
     if (own(source, "learning")) {
       const learning = object(source.learning, "aprendizagem");
       optional(learning, clean.learning, "records", "aprendizagem", (map, field) => idMap(map, field, recordValue));
+      optional(learning, clean.learning, "diagnostic", "aprendizagem", (item, field) => {
+        if (item === null) return null;
+        const diagnostic = object(item, field);
+        const result = { sessionId: string(diagnostic.sessionId, field + ".sessionId"), startedAt: timestamp(diagnostic.startedAt, field + ".startedAt", false) };
+        result.answers = idMap(diagnostic.answers, field + ".answers", (answer, location) => {
+          const current = object(answer, location);
+          const response = { pass: boolean(current.pass, location + ".pass"), helped: boolean(current.helped, location + ".helped"), at: timestamp(current.at, location + ".at", false) };
+          if (response.at < result.startedAt) invalid(location + ".at", "resposta anterior ao início do diagnóstico");
+          return response;
+        });
+        return result;
+      });
       for (const kind of ["attempts", "mistakes"]) if (own(learning, kind)) {
         clean.learning[kind] = array(learning[kind], "aprendizagem." + kind).flatMap((item, index) => {
           const path = "aprendizagem." + kind + "[" + index + "]", row = object(item, path);
@@ -333,6 +371,9 @@
             optional(row, result, "mastery", path, (number, field) => numeric(number, field, 0, 100));
           } else {
             result.createdAt = timestamp(row.createdAt, path + ".createdAt", false);
+            optional(row, result, "variantSeed", path, (item, field) => numeric(item, field, 0, Infinity, true));
+            optional(row, result, "result", path, resultValue);
+            optional(row, result, "reflection", path, reflection);
             optional(row, result, "resolvedAt", path, timestamp);
             if (result.resolvedAt !== null && result.resolvedAt !== undefined && result.resolvedAt < result.createdAt) invalid(path, "resolução anterior ao erro");
           }
@@ -366,7 +407,7 @@
     return { state: clean, summary, warnings };
   }
 
-  const api = Object.freeze({ applyAttempt, seedCompletedRound, validateBackup });
+  const api = Object.freeze({ applyAttempt, seedCompletedRound, resolvesMistake, validateBackup });
   root.PROGRESS_ENGINE = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

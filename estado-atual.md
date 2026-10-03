@@ -32,6 +32,10 @@ O rodapé mantém três referências, que abrem em nova aba: [site do professor]
 
 ## Progresso e backup
 
+`planejamento.js` concentra sequência, pré-requisitos, seleção de sessões e triagem. O diagnóstico reúne seis tarefas de escrita, quatro de leitura e uma de ordenação. Guarda a primeira resposta, permite “Não sei ainda” e termina com onze respostas registradas, sem exigir onze acertos. Seu resultado orienta um ponto de partida provisório; não declara unidades consolidadas. Diagnósticos antigos sem essa evidência pedem nova triagem.
+
+O painel distingue cobertura do catálogo e indicador de autonomia entre atividades praticadas. A consolidação exige também acertos sem apoio. Sessões reservam espaço para revisão, recuperação e conteúdo novo elegível; erros duplicados de uma atividade não multiplicam sua prioridade. Alternativas, ordenação e leitura usam formato próprio sem contabilizar apoio invisível. A prática livre continua disponível em todas as unidades.
+
 `progresso.js` acrescenta regras independentes da interface para domínio, revisão e validação de backups. Conferir novamente uma rodada concluída não aumenta domínio nem adia sua revisão. Uma variação real tem crédito limitado; revisão após intervalo e resposta sem apoio fornecem evidência mais forte. Tentativas com apoio têm ganho limitado, e erros repetidos recebem uma penalidade por rodada.
 
 `seedCompletedRound` permite migrar respostas já aprovadas preservando pontuação, contadores e datas anteriores. `validateBackup` confere versões 1 a 4, rascunhos, resultados, históricos, datas e sessões antes de permitir substituição de dados. Exercícios indisponíveis são ignorados com aviso; estruturas inválidas são rejeitadas. O formato do estado continua na versão 4, com metadados opcionais de rodada e crédito.
@@ -54,7 +58,7 @@ A digitação agrupa gravações em 350 ms e grava imediatamente ao sair do camp
 
 ## Cache e publicação
 
-`service-worker.js` usa o cache `python-de-cabeca-v11`, incluindo `progresso.js`, `editor.js` e `armazenamento.js`. `.github/workflows/pages.yml` verifica os conjuntos de testes sem navegador e publica também os novos módulos. As fontes de manutenção e os artefatos de teste não entram na lista de arquivos públicos. Os commits desta revisão são locais; a publicação ocorre quando forem enviados para `main` no GitHub.
+`service-worker.js` usa o cache `python-de-cabeca-v12`, incluindo os módulos de progresso, editor, armazenamento e planejamento. `.github/workflows/pages.yml` verifica sintaxe, módulos puros, Python local e interface antes de publicar também os novos módulos. As fontes de manutenção e os artefatos de teste não entram na lista de arquivos públicos. Os commits desta revisão são locais; a publicação ocorre quando forem enviados para `main` no GitHub.
 
 O cache remove somente versões antigas de `python-de-cabeca-v`; caches de outras aplicações da mesma origem são preservados. Os arquivos da versão instalada não são atualizados individualmente em segundo plano. Recursos ausentes sem rede recebem resposta controlada 503.
 
@@ -74,6 +78,14 @@ O verificador usa um perfil temporário do sistema para evitar a sincronização
 O progresso é local ao navegador, sem conta ou sincronização automática. A correção Python depende do carregamento do CDN; o cache da interface não garante o interpretador offline. O limite de execução continua em quatro segundos. Domínio e dicas são indicadores de estudo; os casos de teste e as verificações estruturais não provam correção para todas as entradas possíveis.
 
 ## Registro de alterações
+
+### 03/10/2026 — Diagnóstico, sequência e recomendações por evidência
+
+- **O que foi feito:** planejador independente com sequência explícita e pré-requisitos, seleção equilibrada de sessões, formatos próprios para questões sem escrita, painel com cobertura e autonomia separadas e diagnóstico pela primeira resposta. Cache v12 e publicação incluem o módulo. Backup versão 4 aceita novos campos opcionais de evidência, reflexão e contexto do erro.
+- **Motivo:** reconhecimento de alternativas não comprova escrita; erros duplicados e apoio oculto distorciam recomendações. Repetir após corrigir não deve apagar a primeira evidência da triagem.
+- **Áreas afetadas:** `planejamento.js`, progresso e backups, interface, cache, publicação e regressões. Nenhuma atividade removida, nenhum bloqueio à prática livre.
+- **Validação:** sintaxe, `node verificacao/planejamento.cjs` (19 verificações), `node verificacao/progresso.cjs` (36), catálogo e diff passaram. `node verificacao/verificar.cjs --layout-only` passou com recuperação, busca, retomada e três larguras, sem exceções JavaScript.
+- **Limites:** os indicadores são regras transparentes de estudo, sem calibração estatística ou teste longitudinal com estudantes. Escrita no diagnóstico depende de carregar Python; pode ser pulada. Novos casos completos de triagem serão conferidos na rodada final de navegador.
 
 ### 03/10/2026 — Verificações automáticas na publicação
 

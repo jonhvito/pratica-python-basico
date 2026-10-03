@@ -1,7 +1,7 @@
 /* node verificacao/progresso.cjs — regressões das regras que afetam o progresso salvo. */
 "use strict";
 const assert = require("node:assert/strict");
-const { applyAttempt, seedCompletedRound, validateBackup } = require("../progresso.js");
+const { applyAttempt, seedCompletedRound, resolvesMistake, validateBackup } = require("../progresso.js");
 const DAY = 86400000;
 const now = new Date(2026, 9, 2, 12).getTime();
 const exercises = ["a", "b", "c", "d", "e", "f"].map(id => ({ id }));
@@ -257,5 +257,176 @@ check("Objetos malformados e chaves reservadas não entram no progresso", () => 
   rejects(value => value.state.learning.records.a.creditHistory[0].gain = NaN);
   const circular = backup(); circular.state.loop = circular;
   assert.throws(() => validateBackup(circular, exercises), /circular/);
+});
+check("Reflexão e níveis de dica são opcionais e preservados sem alterar legados", () => {
+  const legacy = validateBackup(backup(), exercises).state;
+  assert.equal(legacy.drafts.a.reflection, undefined);
+  assert.equal(legacy.drafts.a.hintsLevel, undefined);
+  assert.equal(legacy.learning.diagnostic, undefined);
+  const value = backup();
+  value.state.drafts.a.reflection = "O texto precisa ser convertido antes da soma.";
+  value.state.drafts.a.hintsLevel = 2;
+  const result = validateBackup(value, exercises);
+  assert.equal(result.state.version, 4);
+  assert.equal(result.state.drafts.a.reflection, value.state.drafts.a.reflection);
+  assert.equal(result.state.drafts.a.hintsLevel, 2);
+  assert.deepEqual(result.state.learning.records, value.state.learning.records);
+});
+check("Limites de reflexão e nível de dica são conferidos", () => {
+  for (const level of [0, 3]) {
+    const value = backup(); value.state.drafts.a.hintsLevel = level; value.state.drafts.a.reflection = "x".repeat(8000);
+    const result = validateBackup(value, exercises);
+    assert.equal(result.state.drafts.a.reflection.length, 8000);
+    assert.equal(result.state.drafts.a.hintsLevel, level);
+  }
+  for (const reflection of [null, 10, {}, "x".repeat(8001)]) rejects(value => value.state.drafts.a.reflection = reflection, /reflection/);
+  for (const level of [-1, 4, 1.5, "2", null]) rejects(value => value.state.drafts.a.hintsLevel = level, /hintsLevel/);
+});
+check("Primeiras respostas do diagnóstico são preservadas com dados independentes", () => {
+  const value = backup();
+  value.state.learning.diagnostic = { sessionId: "diagnostico-1", startedAt: now - 1000, answers: {
+    a: { pass: true, helped: false, at: now }, b: { pass: false, helped: true, at: now - 500 }
+  } };
+  const copy = structuredClone(value);
+  const result = validateBackup(value, exercises);
+  assert.deepEqual(result.state.learning.diagnostic, value.state.learning.diagnostic);
+  result.state.learning.diagnostic.answers.a.pass = false;
+  assert.deepEqual(value, copy);
+  value.state.learning.diagnostic = null;
+  assert.equal(validateBackup(value, exercises).state.learning.diagnostic, null);
+});
+check("Diagnóstico rejeita tipos, campos obrigatórios e datas inconsistentes", () => {
+  function diagnosticReject(change, expression = /diagnostic/) {
+    rejects(value => {
+      value.state.learning.diagnostic = { sessionId: "d1", startedAt: now, answers: { a: { pass: true, helped: false, at: now } } };
+      change(value.state.learning.diagnostic);
+    }, expression);
+  }
+  for (const value of [null, 3, {}]) diagnosticReject(diagnostic => diagnostic.sessionId = value);
+  for (const value of [null, -1, "hoje"]) diagnosticReject(diagnostic => diagnostic.startedAt = value);
+  diagnosticReject(diagnostic => delete diagnostic.sessionId);
+  diagnosticReject(diagnostic => delete diagnostic.answers);
+  diagnosticReject(diagnostic => diagnostic.answers = []);
+  diagnosticReject(diagnostic => diagnostic.answers.a.pass = "true");
+  diagnosticReject(diagnostic => diagnostic.answers.a.helped = 0);
+  diagnosticReject(diagnostic => delete diagnostic.answers.a.helped);
+  diagnosticReject(diagnostic => diagnostic.answers.a.at = null);
+  diagnosticReject(diagnostic => diagnostic.answers.a.at = now - 1, /anterior/);
+});
+check("Diagnóstico ignora somente exercícios indisponíveis e avisa", () => {
+  const value = backup();
+  value.state.learning.diagnostic = { sessionId: "d1", startedAt: now, answers: {
+    a: { pass: true, helped: false, at: now }, removed: { pass: false, helped: false, at: now }
+  } };
+  const result = validateBackup(value, exercises);
+  assert.deepEqual(Object.keys(result.state.learning.diagnostic.answers), ["a"]);
+  assert.equal(result.summary.ignoredIds, 1);
+  assert.ok(result.warnings.some(text => text.includes("ignorados")));
+});
+check("Caderno preserva variação, correção original e reflexão", () => {
+  const value = backup();
+  const mistake = value.state.learning.mistakes[0];
+  mistake.variantSeed = 42;
+  mistake.reflection = "Inicializei o contador antes do laço.";
+  mistake.result = { pass: false, rules: [], cases: [{ pass: false, got: "🐍", expected: "🐍🐍", gotTruncated: false, expectedTruncated: false, gotLength: 1, expectedLength: 2 }], error: { kind: "ValueError", message: "argumentos", context: "arguments", line: null } };
+  const result = validateBackup(value, exercises);
+  assert.deepEqual(result.state.learning.mistakes[0], mistake);
+  result.state.learning.mistakes[0].result.cases[0].got = "alterado";
+  assert.equal(mistake.result.cases[0].got, "🐍");
+  assert.equal(result.state.learning.records.a.mastery, value.state.learning.records.a.mastery);
+});
+check("Metadados de abreviação são opcionais e preservados em todos os resultados", () => {
+  const value = backup();
+  const test = value.state.drafts.a.result.cases[0];
+  Object.assign(test, { got: "x".repeat(8000), expected: "x".repeat(8000), gotTruncated: true, expectedTruncated: true, gotLength: 10000, expectedLength: 10001 });
+  value.state.learning.mistakes[0].result = structuredClone(value.state.drafts.a.result);
+  const result = validateBackup(value, exercises);
+  assert.deepEqual(result.state.drafts.a.result.cases[0], test);
+  assert.deepEqual(result.state.learning.mistakes[0].result.cases[0], test);
+  assert.equal(validateBackup(backup(1), exercises).state.drafts.a.result.cases[0].gotLength, undefined);
+});
+check("Metadados de resultado rejeitam tipos e comprimentos contraditórios", () => {
+  for (const key of ["gotTruncated", "expectedTruncated"]) for (const item of [null, 1, "true"]) rejects(value => value.state.drafts.a.result.cases[0][key] = item, new RegExp(key));
+  for (const key of ["gotLength", "expectedLength"]) for (const item of [null, -1, 1.5, "1", Number.MAX_SAFE_INTEGER + 1]) rejects(value => value.state.drafts.a.result.cases[0][key] = item, new RegExp(key));
+  rejects(value => value.state.drafts.a.result.cases[0].gotLength = 0, /inconsistentes/);
+  rejects(value => Object.assign(value.state.drafts.a.result.cases[0], { gotTruncated: false, gotLength: 2 }), /inconsistentes/);
+  rejects(value => Object.assign(value.state.drafts.a.result.cases[0], { gotTruncated: true, gotLength: 1 }), /inconsistentes/);
+  rejects(value => value.state.drafts.a.result.cases[0].error = { context: "unknown" }, /context/);
+});
+check("Contexto salvo do erro rejeita variação, reflexão e correção inválidas", () => {
+  for (const item of [-1, 2.5, "42", null, Number.MAX_SAFE_INTEGER + 1]) rejects(value => value.state.learning.mistakes[0].variantSeed = item, /variantSeed/);
+  for (const item of [null, 42, "x".repeat(8001)]) rejects(value => value.state.learning.mistakes[0].reflection = item, /reflection/);
+  rejects(value => value.state.learning.mistakes[0].result = { pass: false, cases: [{ pass: "false" }] }, /result/);
+  const value = backup(); value.state.learning.mistakes[0].variantSeed = 0; value.state.learning.mistakes[0].reflection = ""; value.state.learning.mistakes[0].result = null;
+  const restored = validateBackup(value, exercises).state.learning.mistakes[0];
+  assert.equal(restored.variantSeed, 0);
+  assert.equal(restored.reflection, "");
+  assert.equal(restored.result, null);
+});
+check("Entrada própria e previsão são opcionais e preservam literais e texto vazio", () => {
+  const legacy = validateBackup(backup(), exercises).state.drafts.a;
+  assert.equal(legacy.experimentInput, undefined);
+  assert.equal(legacy.experimentPrediction, undefined);
+  for (const input of ['', '""', '[1, 2], 3', '2\n4']) {
+    const value = backup();
+    value.state.drafts.a.experimentInput = input;
+    value.state.drafts.a.experimentPrediction = '';
+    const restored = validateBackup(value, exercises).state.drafts.a;
+    assert.equal(restored.experimentInput, input);
+    assert.equal(restored.experimentPrediction, '');
+    assert.equal(value.state.drafts.a.experimentInput, input);
+  }
+  const value = backup();
+  value.state.drafts.a.experimentInput = 'x'.repeat(8000);
+  value.state.drafts.a.experimentPrediction = 'A soma será 6.';
+  const restored = validateBackup(value, exercises).state.drafts.a;
+  assert.equal(restored.experimentInput.length, 8000);
+  assert.equal(restored.experimentPrediction, 'A soma será 6.');
+});
+check("Entrada própria e previsão rejeitam tipos e tamanhos inválidos", () => {
+  for (const key of ['experimentInput', 'experimentPrediction']) {
+    for (const item of [null, 12, false, [], {}, 'x'.repeat(8001)]) rejects(value => value.state.drafts.a[key] = item, new RegExp(key));
+  }
+});
+check("Recuperação independente resolve a mesma variação mesmo sem crédito diário", () => {
+  const initial = attempt({}, { variantSeed: "same-cases" });
+  const failed = attempt(initial, { pass: false, roundId: "new-error", variantSeed: "same-cases" });
+  const recovered = attempt(failed, { roundId: "recovery", variantSeed: "same-cases" });
+  const options = { roundId: "recovery", pass: true, helped: false, variantSeed: 7 };
+  assert.equal(recovered.credit, false);
+  assert.equal(recovered.mastery, failed.mastery);
+  assert.equal(recovered.dueAt, failed.dueAt);
+  assert.equal(resolvesMistake(failed, recovered, options, { variantSeed: 7 }), true);
+  assert.equal(resolvesMistake(failed, recovered, options, { variantSeed: 8 }), false);
+  assert.equal(resolvesMistake(recovered, attempt(recovered, { roundId: "recovery", variantSeed: "same-cases" }), options, { variantSeed: 7 }), false);
+});
+check("Recuperação exige acerto em nova conclusão sem apoio", () => {
+  const failed = attempt({}, { pass: false });
+  const recovered = attempt(failed, { firstTry: false });
+  const options = { roundId: "round-a", pass: true, helped: false, variantSeed: 0 };
+  assert.equal(resolvesMistake(failed, recovered, options, {}), true);
+  assert.equal(resolvesMistake(failed, recovered, { ...options, pass: false }, {}), false);
+  assert.equal(resolvesMistake(failed, failed, options, {}), false);
+  assert.equal(resolvesMistake(failed, recovered, { ...options, roundId: "other" }, {}), false);
+  const assisted = attempt(failed, { helped: true, firstTry: false });
+  assert.equal(resolvesMistake(failed, assisted, options, {}), false);
+  assert.equal(resolvesMistake(failed, recovered, { ...options, helped: true }, {}), false);
+  const rememberedHelp = attempt({}, { pass: false, helped: true });
+  const correction = attempt(rememberedHelp, { helped: false, firstTry: false });
+  assert.equal(resolvesMistake(rememberedHelp, correction, options, {}), false);
+});
+check("Erros legados são recuperados somente pela variação base e não mudam os registros", () => {
+  const previous = attempt({}, { pass: false });
+  const updated = attempt(previous, { firstTry: false });
+  const options = { roundId: "round-a", pass: true, helped: false, variantSeed: 0 };
+  const copies = [structuredClone(previous), structuredClone(updated)];
+  assert.equal(resolvesMistake(previous, updated, options, {}), true);
+  assert.equal(resolvesMistake(previous, updated, { ...options, variantSeed: 1 }, {}), false);
+  for (const invalid of [null, -1, "0", 0.5, Number.MAX_SAFE_INTEGER + 1]) {
+    assert.equal(resolvesMistake(previous, updated, { ...options, variantSeed: invalid }, {}), false);
+    assert.equal(resolvesMistake(previous, updated, options, { variantSeed: invalid }), false);
+  }
+  assert.deepEqual(previous, copies[0]);
+  assert.deepEqual(updated, copies[1]);
 });
 console.log(checks + " verificações de progresso e backup passaram.");

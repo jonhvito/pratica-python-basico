@@ -32,6 +32,7 @@ jobs:
           node verificacao/editor.cjs
           node verificacao/cache.cjs
           node verificacao/armazenamento.cjs
+          node verificacao/planejamento.cjs
       - name: Verificar soluções e regressões em Python local
         run: node verificacao/python.cjs
       - name: Verificar interface no computador e no celular
@@ -48,7 +49,7 @@ jobs:
       - name: Preparar arquivos públicos
         run: |
           mkdir _site
-          cp index.html styles.css exercicios.js curriculo.js professor.js python.js aprendizagem.js progresso.js armazenamento.js editor.js treinador.js manifest.webmanifest icone.svg service-worker.js .nojekyll _site/
+          cp index.html styles.css exercicios.js curriculo.js professor.js python.js aprendizagem.js progresso.js armazenamento.js planejamento.js editor.js treinador.js manifest.webmanifest icone.svg service-worker.js .nojekyll _site/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

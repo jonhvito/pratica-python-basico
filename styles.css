@@ -188,7 +188,11 @@ dialog::backdrop { background: #192b2266; }
 .feedback-insight p { margin-bottom: 0; }
 .learning-note { color: var(--green); }
 .calibration-note { padding: 9px 11px; background: var(--blue-soft); border-radius: 5px; }
-.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 22px 0; }
+.stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 22px 0; }
+.diagnostic-summary { margin: 12px 0 0; padding-top: 10px; border-top: 1px solid var(--line); line-height: 1.6; }
+.prerequisite-note { padding: 10px 12px; background: var(--bg); border-left: 3px solid var(--line); line-height: 1.6; }
+.learning-measures { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.learning-measures .unit-meter { margin-top: 6px; }
 .stat-card { padding: 16px; background: var(--bg); border-radius: 7px; }
 .stat-card strong, .stat-card span { display: block; }
 .stat-card strong { font: 600 26px var(--mono); color: var(--green); }
