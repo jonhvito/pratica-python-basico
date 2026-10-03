@@ -60,7 +60,22 @@ for (const exercise of EXERCISES) {
   assert.ok(LEARNING_ENGINE.explanationPrompt(exercise).length > 20, exercise.id);
   assert.ok(LEARNING_ENGINE.transferPrompt(exercise).length > 20, exercise.id);
   assert.equal(LEARNING_ENGINE.rubricFor(exercise).length, 3, exercise.id);
+  const materials = LEARNING_ENGINE.materialsFor(exercise);
+  assert.equal(materials.length, 1, exercise.id);
+  assert.match(materials[0].title, /^Python Iluminado · /, exercise.id);
+  const url = new URL(materials[0].url);
+  assert.equal(url.protocol, 'https:');
+  assert.equal(url.hostname, 'pythoniluminado.netlify.app');
+  assert.match(url.pathname, /^\/[a-z-]+\/$/);
 }
+
+assert.equal(LEARNING_ENGINE.materialsFor({ unit: 'condicoes' })[0].url, 'https://pythoniluminado.netlify.app/if-else/');
+assert.deepEqual(LEARNING_ENGINE.materialsFor({ unit: 'indisponivel' }), []);
+assert.deepEqual(LEARNING_ENGINE.materialsFor({ unit: 'constructor' }), []);
+assert.deepEqual(LEARNING_ENGINE.materialsFor(null), []);
+const changedMaterial = LEARNING_ENGINE.materialsFor({ unit: 'listas' });
+changedMaterial[0].url = 'alterado';
+assert.equal(LEARNING_ENGINE.materialsFor({ unit: 'listas' })[0].url, 'https://pythoniluminado.netlify.app/listas/');
 
 const originalCatalogue = structuredClone(EXERCISES);
 const projects = EXERCISES.map(exercise => ({ exercise, project: LEARNING_ENGINE.projectFor(exercise) })).filter(item => item.project);

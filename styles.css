@@ -1,3 +1,13 @@
+.learning-workbench { display: grid; gap: 12px; margin: 18px 0; min-width: 0; }
+.learning-workbench details { padding: 16px; border: 1px solid #d9dfd7; border-radius: 8px; background: #fafbf7; }
+.learning-workbench summary { cursor: pointer; font-weight: 600; }
+.learning-workbench label, .mistake-entry label { display: block; margin: 12px 0 6px; }
+.learning-workbench textarea, .mistake-entry textarea { width: 100%; min-width: 0; padding: 10px; border: 1px solid #b8c4b8; border-radius: 6px; font: inherit; font-size: 16px; resize: vertical; }
+#experiment-input { font-family: Consolas, monospace; }
+.learning-workbench li { margin: 8px 0; }
+.learning-workbench pre, .mistake-entry pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+#topic-materials { padding: 8px 0; }
+#hint-text strong { display: block; margin-top: 12px; }
 :root {
   --bg: #f7f6f2; --surface: #fff; --ink: #29332e; --muted: #69716a;
   --line: #dedfd7; --green: #2e624b; --green-dark: #244c3b; --green-soft: #edf3ed; --red: #9c3e32;

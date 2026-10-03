@@ -30,6 +30,8 @@ O botão **Trilha** organiza o conteúdo em Lógica, Sintaxe, Variáveis e tipos
 
 O **diagnóstico inicial** apresenta uma questão curta de cada unidade. Há cinco formatos de atividade: alternativas conceituais, ordenação de etapas, previsão de saída, programas completos e funções. Assim, o estudo trabalha o raciocínio anterior ao código e também a escrita real da linguagem.
 
+Na triagem são seis tarefas de escrita, quatro de leitura e uma de ordenação. Verifique sua primeira resposta ou escolha **Não sei ainda**. É possível concluir com erros; tentar novamente não apaga a primeira resposta. O resultado sugere um ponto de partida provisório, que precisa ser confirmado na prática. O painel separa **cobertura do catálogo** e **indicador de autonomia** entre atividades praticadas; esses números não são uma certificação.
+
 ## Como estudar
 
 1. Tente escrever sem consulta. O campo começa vazio.
@@ -39,6 +41,10 @@ O **diagnóstico inicial** apresenta uma questão curta de cada unidade. Há cin
 5. Use **Desafio** para seis questões executáveis com correção ao concluir. O relógio conta o tempo, sem prazo obrigatório. Imprima a sequência para resolver à mão e transcreva as respostas para receber a correção automática. No treino, a impressão inclui apenas o exercício aberto.
 
 O editor mostra números de linha, mantém o recuo ao pressionar Enter e permite inserir quatro espaços com Tab. Quando Python informa a linha de um erro, o editor destaca seu número. A correção de saída mostra a primeira diferença entre o esperado e o obtido, inclusive espaços e quebras de linha.
+
+As dicas aparecem em três níveis. Em **Explique e leve a ideia para outro caso**, registre seu raciocínio e use os critérios pessoais para conferir a explicação. Em **Experimente um caso que você inventou**, preveja um resultado e execute seu código com entradas próprias. Funções aceitam argumentos literais Python separados por vírgula; programas leem uma entrada por linha. A opção de entrada vazia distingue um `input()` vazio de nenhuma entrada. Essa execução não aumenta o domínio.
+
+**Mais formas de praticar** também oferece projetos de frequências e vendas por filial. Cada projeto usa uma atividade existente, com plano, casos de fronteira, implementação e explicação. **Baixar meu código .py** permite continuar a experiência em Python local. As anotações, entradas próprias e previsões acompanham o backup; não recebem nota automática.
 
 ## Treino adaptativo
 
@@ -59,7 +65,7 @@ Antes de verificar, é possível registrar a confiança como “Chutei”, “Ac
 ## Aprendizado e revisão
 
 - **Meu aprendizado** mostra tentativas, taxa de acerto, sequência de estudo e domínio por habilidade.
-- **Caderno de erros** guarda o código que falhou, classifica o provável problema e permite voltar diretamente ao exercício.
+- **Caderno de erros** guarda código, variação, correção e contexto original. Registre sua hipótese; **Investigar este erro** restaura a tentativa e **Refazer sem consulta** começa uma nova rodada nos mesmos casos. Um acerto sem apoio pode encerrar esse erro mesmo quando o limite diário impede ganhar domínio; outra variação não encerra o erro original.
 - Revisões espaçadas ajudam a confirmar o aprendizado. Errar traz a questão de volta mais cedo; acertos independentes permitem aumentar o intervalo.
 - Conferir a mesma resposta repetidamente não aumenta o domínio nem adia a revisão. Uma nova variação pode contribuir de forma limitada; recuperar a solução depois de algum tempo traz evidência mais forte de aprendizado.
 - Abrir dica, solução, consulta rápida ou começo sugerido marca aquela tentativa como feita com apoio.
@@ -69,6 +75,8 @@ Antes de verificar, é possível registrar a confiança como “Chutei”, “Ac
 O desafio seleciona seis exercícios de programação compatíveis com o ponto atual da trilha. Rascunhos, histórico, revisões e resultados são guardados no navegador, inclusive ao trocar de exercício. Treino livre, sessão adaptativa e desafio têm respostas separadas. Não há conta nem sincronização entre dispositivos. Em navegação privada, ao mudar a pasta de lugar ou limpar os dados do navegador, o progresso pode deixar de estar disponível.
 
 Use **Dados → Exportar backup** para gerar um arquivo JSON e **Importar backup** no outro navegador. Antes de importar, a aplicação valida a versão e o conteúdo e apresenta um resumo. A importação substitui o progresso atual; nessa etapa, é possível exportar uma cópia do que já está no navegador ou cancelar.
+
+Dados inválidos, versões futuras e alterações de outra aba são protegidos por um aviso visível. Em **Dados**, exporte o original sem transformações ou recupere a última cópia válida, quando disponível. Falhas de quota são informadas. Limpar o progresso preserva arquivos anteriores de recuperação. A digitação é salva após 350 ms sem nova edição e também ao sair do campo ou da página.
 
 ## Correção
 
@@ -92,6 +100,9 @@ HTML, CSS e JavaScript puro, sem framework, build, backend, gerenciador de pacot
 - `aprendizagem.js`: habilidades, variações, desafios e diagnóstico pedagógico.
 - `progresso.js`: validação dos dados e regras de evidência para o progresso de aprendizagem.
 - `editor.js`: recuo automático, números de linha, indicação de erro e comparação de saídas.
+- `armazenamento.js`: proteção, cópia válida, recuperação e conflitos de dados locais.
+- `planejamento.js`: sequência, pré-requisitos, diagnóstico e seleção de sessões.
+- `estudo.js`: dicas graduais, reflexão, casos próprios, projetos e exportação de código.
 - `treinador.js`: estado local, sessões, revisão, navegação, painéis, backup, desafios e impressão.
 - `python.js`: correção com Python real, usando Pyodide 0.26.4. A execução em uma tarefa separada segue a [documentação do Pyodide](https://pyodide.org/en/0.26.4/usage/webworker.html).
 - `manifest.webmanifest`, `service-worker.js` e `icone.svg`: instalação e cache da interface no GitHub Pages.

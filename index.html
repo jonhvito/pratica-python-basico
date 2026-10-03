@@ -18,6 +18,7 @@
   <script defer src="planejamento.js"></script>
   <script defer src="armazenamento.js"></script>
   <script defer src="editor.js"></script>
+  <script defer src="estudo.js"></script>
   <script defer src="treinador.js"></script>
 </head>
 <body>
@@ -51,6 +52,7 @@
       <summary>Mais formas de praticar</summary>
       <p class="small muted">Recupere os fundamentos em uma sequência guiada ou combine diferentes conceitos em um desafio com correção ao final.</p>
       <div class="course-actions"><button id="course-review-button" class="quiet">Revisão de fundamentos · 12 questões</button><button id="course-exam-button" class="quiet">Desafio de integração · 6 questões</button></div>
+      <div class="course-actions"><button data-project="curso-frequencias" class="quiet">Projeto · Frequências</button><button data-project="curso-medias-filiais" class="quiet">Projeto · Vendas por filial</button></div>
     </details>
   </section>
   <div class="workspace">
@@ -147,9 +149,10 @@
         <p id="connection-status" class="small muted" role="status" hidden></p>
         <section id="feedback" class="feedback" aria-label="Resultado da correção" aria-live="polite" hidden></section>
         <div id="study-tools" class="study-tools">
-          <details id="hint-details"><summary>Preciso de uma dica</summary><p id="hint-text"></p></details>
+          <details id="hint-details"><summary>Preciso de uma dica</summary><div id="hint-text"></div></details>
           <details id="solution-details"><summary>Ver uma solução comentada</summary><p class="small muted">Depois de entender, feche a solução e tente escrever de novo.</p><pre><code id="solution-code"></code></pre><p id="solution-note"></p></details>
         </div>
+        <section id="learning-workbench" class="learning-workbench" aria-label="Explicação, experimentação e aprofundamento"></section>
         <div class="exercise-footer"><button id="previous-button" class="quiet">← Anterior</button><span id="position" class="small muted"></span><button id="next-button" class="quiet">Próximo →</button></div>
       </article>
       <p class="method-note">Um treino que funciona: escreva → confira → entenda o erro → refaça sem olhar. Na próxima rodada, use papel.</p>

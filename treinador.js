@@ -47,6 +47,11 @@
   let importRequest = 0;
   let state = loadState();
   const codeEditor = window.CodeEditor.attach($("answer"), { gutter: $("line-numbers"), status: $("editor-status") });
+  const studyWorkbench = window.STUDY_WORKBENCH.create({
+    engine, getExercise: currentExercise, getDraft: () => draft(activeId()), getAnswer: () => answerFor(activeId()),
+    getMode: () => mode, isSubmitted: () => !!state.exam?.finishedAt, isBusy: () => busy,
+    save, scheduleSave, markHelp, setBusy, appendError, pyRepr
+  });
 
   function newRoundId() { return globalThis.crypto?.randomUUID?.() || Date.now() + "-" + Math.random().toString(36).slice(2); }
   function setMode(value) { mode = value; state.lastMode = value; }
@@ -67,6 +72,10 @@
   function normalizeDraft(value, exercise) {
     return {
       code: typeof value?.code === "string" ? value.code : "",
+      reflection: typeof value?.reflection === "string" ? value.reflection.slice(0, 8000) : "",
+      hintsLevel: Number.isInteger(value?.hintsLevel) ? Math.max(0, Math.min(3, value.hintsLevel)) : 0,
+      ...(typeof value?.experimentInput === "string" ? { experimentInput: value.experimentInput.slice(0, 8000) } : {}),
+      ...(typeof value?.experimentPrediction === "string" ? { experimentPrediction: value.experimentPrediction.slice(0, 8000) } : {}),
       helped: !!value?.helped,
       result: validResult(value?.result),
       confidence: [1, 2, 3].includes(value?.confidence) ? value.confidence : null,
@@ -388,6 +397,7 @@
   function recordAttempt(exercise, result, code, options = {}) {
     const timestamp = Date.now();
     const record = recordFor(exercise.id, true);
+    const previousRecord = { ...record };
     const helped = !!options.helped;
     const confidence = options.confidence || null;
     const pass = !!result.pass;
@@ -398,8 +408,10 @@
     });
     Object.assign(record, updated);
     if (pass) {
-      if (!helped && updated.credit) state.learning.mistakes.forEach(item => {
-        if (item.exerciseId === exercise.id && !item.resolvedAt) item.resolvedAt = timestamp;
+      state.learning.mistakes.forEach(item => {
+        if (item.exerciseId === exercise.id && !item.resolvedAt && window.PROGRESS_ENGINE.resolvesMistake(previousRecord, updated, {
+          pass, helped, roundId: options.roundId || roundIdFor(exercise.id), variantSeed: variantSeedFor(exercise.id)
+        }, item)) item.resolvedAt = timestamp;
       });
     } else {
       const diagnosed = engine.diagnosis(result, exercise, code);
@@ -412,6 +424,9 @@
         tip: diagnosed.tip,
         detail: diagnosed.detail,
         code: String(code).slice(0, 5000),
+        variantSeed: variantSeedFor(exercise.id),
+        result: JSON.parse(JSON.stringify(result)),
+        reflection: "",
         createdAt: timestamp,
         resolvedAt: null
       });
@@ -570,6 +585,7 @@
     else if (mode === "practice") draft(exercise.id).result = null;
     scheduleSave();
     $("feedback").hidden = true;
+    studyWorkbench.invalidate();
     codeEditor.sync({ codeMode: ["program", "function"].includes(exercise.kind), errorLine: null });
     renderNavigation(); renderState();
     renderCoachPanel();
@@ -914,7 +930,8 @@
     $("retry-button").hidden = exam; $("new-variant").hidden = exam || !["program", "function"].includes(exercise.kind) || engine.materialize(exercise, 1) === exercise;
     $("study-tools").hidden = exam && !submitted;
     $("hint-details").open = false; $("solution-details").open = false;
-    $("hint-text").textContent = exercise.hint; $("solution-code").textContent = exercise.solution; $("solution-note").textContent = exercise.note;
+    $("solution-code").textContent = exercise.solution; $("solution-note").textContent = exercise.note;
+    studyWorkbench.render();
     $("reference-button").disabled = busy || (exam && !submitted);
     $("print-button").textContent = exam ? "Imprimir desafio" : "Imprimir exercício";
     $("position").textContent = index < 0 ? "Exercício aberto fora do filtro" : (index + 1) + " de " + list.length;
@@ -982,6 +999,8 @@
 
   function setBusy(value) {
     busy = value;
+    studyWorkbench.setBusy(value);
+    document.querySelectorAll("[data-project]").forEach(button => { button.disabled = value; });
     ["check-button", "skeleton-button", "retry-button", "new-variant", "practice-mode", "coach-mode", "exam-mode", "finish-exam", "new-exam", "print-button", "new-coach", "continue-study-button", "daily-study-button", "diagnostic-study-button", "course-review-button", "course-exam-button", "clear-exercise-filters", "curriculum-button", "learning-button", "mistakes-button", "finish-coach-item", "clear-data", "confirm-import", "add-trace-row", "paper-transcribe"].forEach(id => { if ($(id)) $(id).disabled = value; });
     document.querySelectorAll(".format-button, [data-confidence], .choice-option, #order-lines button").forEach(button => { button.disabled = value; });
     if (!value) { renderFormats(currentExercise()); renderOrder(currentExercise()); }
@@ -1236,10 +1255,24 @@
       const details = element("details", undefined, "mistake-entry");
       const summary = element("summary"); summary.append(element("strong", item.title), element("span", item.categoryTitle + " · " + formatTime(item.createdAt))); details.append(summary);
       details.append(element("p", item.tip));
+      if (item.detail) details.append(element("p", item.detail, "small muted"));
       if (item.code) details.append(element("pre", item.code));
-      const retry = element("button", "Treinar este erro", "primary"); retry.type = "button";
-      retry.onclick = () => { if (busy) return; $("mistakes-dialog").close(); setMode("practice"); clearExerciseFilters(); state.activeId = item.exerciseId; draft(item.exerciseId).format = engine.bugFor(byId.get(item.exerciseId)) ? "bug" : "write"; restartRound(item.exerciseId); prepareCurrentChallenge(true); save(); render(); };
-      details.append(retry); list.append(details);
+      const label = element("label", "Qual era sua hipótese? Que caso confirma a correção?");
+      const note = element("textarea"); note.id = "mistake-note-" + item.id; note.maxLength = 8000; note.rows = 3;
+      note.value = item.reflection || ""; label.htmlFor = note.id;
+      note.oninput = () => { item.reflection = note.value; scheduleSave(); }; note.onblur = save;
+      details.append(label, note);
+      function recoverError(fromMemory) {
+        if (busy) return;
+        $("mistakes-dialog").close(); setMode("practice"); clearExerciseFilters();
+        const target = draft(item.exerciseId);
+        target.variantSeed = item.variantSeed || 0; target.format = "write"; target.code = fromMemory ? "" : item.code || "";
+        target.result = null; target.challengeKey = ""; target.hintsLevel = 0;
+        restartRound(item.exerciseId); navigate(item.exerciseId);
+      }
+      const retry = element("button", "Investigar este erro", "primary"); retry.type = "button"; retry.onclick = () => recoverError(false);
+      const recall = element("button", "Refazer sem consulta", "quiet"); recall.type = "button"; recall.onclick = () => recoverError(true);
+      details.append(retry, recall); list.append(details);
     });
   }
 
@@ -1278,6 +1311,7 @@
 
   function confirmImport() {
     if (!pendingImport || busy) return;
+    clearTimeout(saveTimer); saveTimer = null;
     const result = storage.replace(pendingImport.state);
     if (result.ok) window.location.reload();
     else { lastStorageResult = result; renderStorageStatus(); $("data-status").textContent = result.message; }
@@ -1289,7 +1323,11 @@
     if (answerFor(id).trim() && !window.confirm("Apagar esta resposta e tentar novamente do zero?")) return;
     if (mode === "coach") {
       state.coach.answers[id] = ""; state.coach.results[id] = null; state.coach.helped[id] = false; state.coach.confidence[id] = null; state.coach.prepared[id] = ""; state.coach.paperTranscribing[id] = false;
-    } else state.drafts[id] = normalizeDraft({ variantSeed: draft(id).variantSeed, format: draft(id).format }, byId.get(id));
+    } else {
+      const previous = draft(id);
+      state.drafts[id] = normalizeDraft({ variantSeed: previous.variantSeed, format: previous.format,
+        reflection: previous.reflection, experimentInput: previous.experimentInput, experimentPrediction: previous.experimentPrediction }, byId.get(id));
+    }
     restartRound(id);
     prepareCurrentChallenge(); save(); render(); if (!$("editor-wrap").hidden) $("answer").focus();
   }
@@ -1322,7 +1360,12 @@
     setAnswer(activeId(), currentExercise().starter); setResult(activeId(), null); markHelp(); save(); render(); $("answer").focus();
   };
   $("retry-button").onclick = resetCurrent; $("new-variant").onclick = nextVariant;
-  ["hint-details", "solution-details"].forEach(id => $(id).addEventListener("toggle", () => { if ($(id).open) markHelp(); }));
+  $("solution-details").addEventListener("toggle", () => { if ($("solution-details").open) markHelp(); });
+  document.querySelectorAll("[data-project]").forEach(button => button.onclick = () => {
+    if (busy) return;
+    setMode("practice"); clearExerciseFilters(); navigate(button.dataset.project);
+    $("project-details").open = true; $("project-details").scrollIntoView({ block: "start", behavior: "smooth" });
+  });
   document.querySelectorAll(".format-button").forEach(button => button.onclick = () => applyFormat(button.dataset.format));
   document.querySelectorAll("[data-confidence]").forEach(button => button.onclick = () => setConfidence(Number(button.dataset.confidence)));
   $("paper-print").onclick = () => { buildPrintSheet(); window.print(); };
@@ -1361,6 +1404,7 @@
   $("export-before-import").onclick = exportData;
   $("clear-data").onclick = () => {
     if (!window.confirm("Apagar rascunhos, histórico, erros e domínio deste navegador? Arquivos de recuperação anteriores serão preservados em Dados e backup.")) return;
+    clearTimeout(saveTimer); saveTimer = null;
     const result = storage.clear();
     if (result.ok) window.location.reload();
     else $("data-status").textContent = result.message;

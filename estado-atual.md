@@ -50,6 +50,10 @@ A digitação agrupa gravações em 350 ms e grava imediatamente ao sair do camp
 
 ## Editor e diagnóstico
 
+`estudo.js` oferece três níveis de dica, perguntas de explicação e transferência, anotações pessoais, critérios de revisão, leitura por unidade, casos próprios e exportação `.py`. Dois projetos — frequências e vendas por filial — aproveitam atividades existentes com plano, previsão de casos, implementação e explicação. Notas, previsões e entradas próprias acompanham o backup e permanecem ao refazer o código. A experimentação aceita argumentos literais Python ou entradas por linha e não atribui domínio.
+
+O caderno guarda a variação e a correção original, mostra entrada/esperado/obtido e permite registrar hipótese e caso de recuperação. Investigar restaura a tentativa original; refazer sem consulta abre uma rodada nos mesmos casos. A recuperação independente encerra somente erros da variação testada, mesmo quando o limite diário impede ganhar domínio. Conferir novamente uma rodada já encerrada não resolve novos erros.
+
 `editor.js` mantém o campo de texto nativo e oferece números de linha, rolagem sincronizada, recuo ao pressionar Enter, remoção de recuo com Backspace e indicação acessível da linha com erro. A inserção nativa preserva desfazer/refazer quando disponível. A comparação de resultados mostra a primeira diferença, evidencia espaços e limites de linha e oferece um bloco recolhido com os dois resultados completos, limitado a 8.000 caracteres por saída.
 
 `aprendizagem.js` vincula o diagnóstico ao primeiro caso que falhou, com entrada, esperado e obtido. Orientações inferidas para `range` e acumuladores aparecem como hipóteses. Um retorno `None` válido não é tratado como erro de `return`. `treinador.js` conecta o editor e a comparação à interface; `styles.css` oferece os destaques e a apresentação responsiva. A consulta rápida diferencia explicitamente `=`, `==` e `>=`.
@@ -58,11 +62,13 @@ A digitação agrupa gravações em 350 ms e grava imediatamente ao sair do camp
 
 ## Cache e publicação
 
-`service-worker.js` usa o cache `python-de-cabeca-v12`, incluindo os módulos de progresso, editor, armazenamento e planejamento. `.github/workflows/pages.yml` verifica sintaxe, módulos puros, Python local e interface antes de publicar também os novos módulos. As fontes de manutenção e os artefatos de teste não entram na lista de arquivos públicos. Os commits desta revisão são locais; a publicação ocorre quando forem enviados para `main` no GitHub.
+`service-worker.js` usa o cache `python-de-cabeca-v13`, incluindo os módulos de progresso, editor, armazenamento, planejamento e estudo. `.github/workflows/pages.yml` verifica sintaxe, módulos puros, Python local e interface antes de publicar também os novos módulos. As fontes de manutenção e os artefatos de teste não entram na lista de arquivos públicos. Os commits desta revisão são locais; a publicação ocorre quando forem enviados para `main` no GitHub.
 
 O cache remove somente versões antigas de `python-de-cabeca-v`; caches de outras aplicações da mesma origem são preservados. Os arquivos da versão instalada não são atualizados individualmente em segundo plano. Recursos ausentes sem rede recebem resposta controlada 503.
 
 ## Validação
+
+Rodada integrada de 03/10/2026: sintaxe de todos os arquivos `.js` e `.cjs`, catálogo, editor, cache, 36 verificações de progresso/backup, 31 de armazenamento e 19 de planejamento aprovados. O pipeline `node verificacao/python.cjs --emit-python | python -` aprovou 56 soluções, 90 variações, 47 leituras e 22 regressões. `node verificacao/verificar.cjs` passou com Pyodide, diagnóstico pela primeira resposta, dicas graduais, casos próprios sem crédito, notas preservadas ao refazer, exportação de backup e `.py`, interrupção de laço, impressão, três larguras, recarga offline e console sem exceções. Capturas do painel e projeto no celular foram inspecionadas.
 
 - `node verificacao/conteudo.cjs`: aprovado, com 136 atividades, 11 unidades e seis grupos distintos no desafio de integração.
 - `node --check progresso.js` e `node verificacao/progresso.cjs`: aprovados; 22 verificações de domínio, migração e backup.
@@ -78,6 +84,15 @@ O verificador usa um perfil temporário do sistema para evitar a sincronização
 O progresso é local ao navegador, sem conta ou sincronização automática. A correção Python depende do carregamento do CDN; o cache da interface não garante o interpretador offline. O limite de execução continua em quatro segundos. Domínio e dicas são indicadores de estudo; os casos de teste e as verificações estruturais não provam correção para todas as entradas possíveis.
 
 ## Registro de alterações
+
+### 03/10/2026 — Compreensão, experimentação e recuperação do erro
+
+- **O que foi feito:** integração de dicas graduais, explicação/transferência, critérios pessoais, casos próprios com previsão, projetos, leitura por unidade e exportação `.py`; caderno com variação, correção original e reflexão; cache v13. Refazer preserva notas e dados experimentais. Importar ou limpar cancela gravação pendente antes da substituição.
+- **Motivo:** tornar o acerto uma oportunidade de compreender, inventar casos e recuperar o raciocínio; evitar apagar notas ou ressuscitar dados anteriores após importar. A recuperação do erro é separada do ganho diário de domínio e exige a mesma variação em uma nova rodada sem apoio.
+- **Áreas afetadas:** `estudo.js`, aprendizagem, treinador, interface, estilos, publicação, verificações e guias. Catálogo continua com 136 atividades; dados continuam na versão 4 com campos opcionais já validados.
+- **Validação:** sintaxe de todos os JavaScript, `node verificacao/conteudo.cjs`, `node verificacao/editor.cjs`, `node verificacao/progresso.cjs` (36), `node verificacao/armazenamento.cjs` (31), `node verificacao/planejamento.cjs` (19), cache e pipeline Python local aprovados. A suíte completa de navegador passou, inclusive backup das notas/entradas, arquivo `.py` exato, projetos sem transbordar no celular e recarga offline. `git diff --check` aprovado; capturas inspecionadas.
+- **Falhas corrigidas durante validação:** uma expectativa antiga de quatro cartões não correspondia às seis medidas novas; teste atualizado. O caso de exportar código e importar logo depois revelou gravação antiga pendente sobrescrevendo a importação; timer cancelado e regressão aprovada. Revisão independente confirmou a preservação das notas ao refazer.
+- **Limites:** explicações e projetos usam critérios pessoais, sem nota automática ou medição de retenção com estudantes. Experimentos respeitam o limite de execução e não aplicam as restrições didáticas da correção. CI Linux e leitores de tela/aparelhos físicos não foram executados localmente. O interpretador continua dependendo do carregamento inicial pela internet.
 
 ### 03/10/2026 — Diagnóstico, sequência e recomendações por evidência
 

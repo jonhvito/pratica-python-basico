@@ -305,8 +305,17 @@ async function checked() {
   await click("curriculum-button");
   await click("start-diagnostic");
   assert.equal(await evaluate("document.querySelectorAll('.exercise-link').length === 11 && JSON.parse(localStorage.getItem('python-de-cabeca-v1')).coach.type === 'diagnostic'"), true);
+  assert.equal(await evaluate("(() => { const c=JSON.parse(localStorage.getItem('python-de-cabeca-v1')).coach; return c.ids.filter(id=>['program','function'].includes(EXERCISES.find(e=>e.id===id).kind)).length===6 && Object.values(c.formats).every(f=>f==='write'); })()"), true);
+  await click("finish-coach-item");
+  await select("var-reatribuicao");
+  await input("resposta incorreta"); await checked();
+  await input(await evaluate("(() => { const s=JSON.parse(localStorage.getItem('python-de-cabeca-v1')); return LEARNING_ENGINE.materialize(EXERCISES.find(e=>e.id==='var-reatribuicao'),s.coach.variants['var-reatribuicao']).answer; })()"));
+  await checked();
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('python-de-cabeca-v1')).learning.diagnostic.answers['var-reatribuicao'].pass"), false);
+  for (let index=0; index<11 && await evaluate("!JSON.parse(localStorage.getItem('python-de-cabeca-v1')).coach.finishedAt"); index+=1) await click("finish-coach-item");
+  assert.equal(await evaluate("(() => { const s=JSON.parse(localStorage.getItem('python-de-cabeca-v1')); return !!s.coach.finishedAt && Object.keys(s.learning.diagnostic.answers).length===11 && !document.getElementById('diagnostic-summary').hidden; })()"), true);
   await click("practice-mode");
-  console.log("OK: diagnóstico inicial seleciona uma questão representativa de cada unidade.");
+  console.log("OK: diagnóstico combina escrita e leitura, mantém a primeira resposta e termina com lacunas.");
 
   await select("dobro_funcao");
   await evaluate("document.querySelector('[data-confidence=\"3\"]').click()");
@@ -317,11 +326,27 @@ async function checked() {
   assert.equal(await evaluate("document.getElementById('mistakes-count').hidden"), false);
   await click("mistakes-button");
   assert.equal(await evaluate("document.getElementById('mistakes-dialog').open && document.querySelectorAll('.mistake-entry').length === 1"), true);
+  await evaluate("(() => { const field=document.querySelector('.mistake-entry textarea'); field.value='Hipótese: confundi print e return. Conferir um número negativo.'; field.dispatchEvent(new Event('input',{bubbles:true})); field.dispatchEvent(new Event('blur')); })()");
+  assert.equal(await evaluate("(() => { const m=JSON.parse(localStorage.getItem('python-de-cabeca-v1')).learning.mistakes.find(m=>m.exerciseId==='dobro_funcao'); return m.variantSeed===0 && !!m.result && m.reflection.includes('print e return') && document.querySelector('.mistake-entry').textContent.includes('Esperado'); })()"), true);
   await click("close-mistakes");
   await click("learning-button");
-  assert.equal(await evaluate("document.getElementById('learning-dialog').open && document.querySelectorAll('.skill-card').length === 15 && document.querySelectorAll('.stat-card').length === 4"), true);
+  assert.equal(await evaluate("document.getElementById('learning-dialog').open && document.querySelectorAll('.skill-card').length === 15 && document.querySelectorAll('.stat-card').length === 6 && document.getElementById('learning-stats').textContent.includes('cobertura do catálogo')"), true);
   await click("close-learning");
   console.log("OK: confiança, histórico, revisão, domínio e caderno de erros são atualizados por uma tentativa real.");
+
+  await input("def dobro(numero):\n    return numero * 2");
+  const beforeExperiment = await evaluate("JSON.stringify(JSON.parse(localStorage.getItem('python-de-cabeca-v1')).learning)");
+  await evaluate("(() => { const field=document.getElementById('experiment-input'); field.value='7'; field.dispatchEvent(new Event('input',{bubbles:true})); const prediction=document.getElementById('experiment-prediction'); prediction.value='14'; prediction.dispatchEvent(new Event('input',{bubbles:true})); })()");
+  await click("run-experiment");
+  await waitFor(() => evaluate("!document.getElementById('run-experiment').disabled && document.getElementById('experiment-result').textContent.includes('14')"), "caso próprio executado", 80000);
+  assert.equal(await evaluate("JSON.stringify(JSON.parse(localStorage.getItem('python-de-cabeca-v1')).learning)"), beforeExperiment);
+  await evaluate("document.getElementById('hint-details').open=true"); await pause(120);
+  await click("next-hint"); await click("next-hint");
+  assert.equal(await evaluate("document.getElementById('next-hint').hidden && JSON.parse(localStorage.getItem('python-de-cabeca-v1')).drafts.dobro_funcao.hintsLevel===3"), true);
+  await evaluate("(() => { const field=document.getElementById('reflection-notes'); field.value='Dobrar significa somar o número a ele mesmo. Negativos mantêm o sinal.'; field.dispatchEvent(new Event('input',{bubbles:true})); field.dispatchEvent(new Event('blur')); })()");
+  await click("retry-button");
+  assert.equal(await evaluate("document.getElementById('answer').value==='' && document.getElementById('reflection-notes').value.includes('Negativos') && document.getElementById('experiment-input').value==='7'"), true);
+  console.log("OK: casos próprios não atribuem domínio; dicas graduais e reflexões ficam guardadas.");
 
   await input("def dobro(numero)\n    return numero * 2");
   await checked();
@@ -385,6 +410,13 @@ async function checked() {
     assert.equal(result.pass, true, solution.id + ": " + JSON.stringify(result));
   }
   console.log("OK: " + solutions.length + " soluções executáveis passam em todos os casos no Python real.");
+  await select("curso-primos");
+  await input(await evaluate("EXERCISES.find(e=>e.id==='curso-primos').solution"));
+  assert.match(await checked(), /Passou/);
+  assert.equal(await evaluate("document.querySelectorAll('#feedback .comparison-changed').length"), 0);
+  await evaluate("document.querySelector('[data-project=\"curso-frequencias\"]').click()");
+  assert.equal(await evaluate("document.getElementById('project-details').open && document.getElementById('project-details').textContent.includes('Plano:') && document.getElementById('export-python').hidden===false"), true);
+  console.log("OK: listas aprovadas têm comparação coerente e projetos expõem plano, casos e exportação.");
 
   async function run(id, code) { return evaluate(`PythonRunner.run(EXERCISES.find(ex => ex.id === ${JSON.stringify(id)}), ${JSON.stringify(code)})`); }
   assert.equal((await run("soma", "def soma_lista(numeros):\n    return sum(numeros)")).pass, false);
@@ -481,6 +513,10 @@ async function checked() {
   assert.equal(await evaluate("document.documentElement.scrollWidth<=window.innerWidth && document.getElementById('exercise-list').getBoundingClientRect().height<=650"), true);
   await send("Emulation.setDeviceMetricsOverride", {width:390,height:844,deviceScaleFactor:1,mobile:true});
 
+  await evaluate("document.querySelector('[data-project=\"curso-frequencias\"]').click(); document.getElementById('project-details').scrollIntoView({block:'start',behavior:'instant'});");
+  assert.equal(await evaluate("document.documentElement.scrollWidth<=window.innerWidth && document.getElementById('learning-workbench').scrollWidth<=document.getElementById('learning-workbench').clientWidth+1"), true);
+  fs.writeFileSync(path.join(artifacts, "projeto-celular.png"), Buffer.from((await send("Page.captureScreenshot", {format:"png"})).data, "base64"));
+
   await click("data-button");
   await evaluate(`(() => {
     window.__backupDownload = null;
@@ -491,6 +527,13 @@ async function checked() {
   })()`);
   await click("export-data");
   assert.equal(await evaluate("window.__backupDownload.startsWith('python-de-cabeca-backup-') && window.__backupBlob.type === 'application/json' && window.__backupBlob.size > 500"), true);
+  assert.equal(await evaluate("window.__backupBlob.text().then(text=>{const d=JSON.parse(text).state.drafts.dobro_funcao; return d.reflection.includes('Negativos') && d.experimentInput==='7' && d.experimentPrediction==='14';})"), true);
+  await click("close-data");
+  await input("def frequencias(valores):\n    return {}\n");
+  await click("export-python");
+  assert.equal(await evaluate("window.__backupDownload==='curso-frequencias.py' && window.__backupBlob.type.startsWith('text/x-python')"), true);
+  assert.equal(await evaluate("window.__backupBlob.text()"), "def frequencias(valores):\n    return {}\n");
+  await click("data-button");
   await evaluate(`(() => {
     window.__restoreCreateObjectURL();
     const saved = JSON.parse(localStorage.getItem("python-de-cabeca-v1"));

@@ -49,7 +49,7 @@ jobs:
       - name: Preparar arquivos públicos
         run: |
           mkdir _site
-          cp index.html styles.css exercicios.js curriculo.js professor.js python.js aprendizagem.js progresso.js armazenamento.js planejamento.js editor.js treinador.js manifest.webmanifest icone.svg service-worker.js .nojekyll _site/
+          cp index.html styles.css exercicios.js curriculo.js professor.js python.js aprendizagem.js progresso.js armazenamento.js planejamento.js editor.js estudo.js treinador.js manifest.webmanifest icone.svg service-worker.js .nojekyll _site/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

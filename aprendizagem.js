@@ -235,6 +235,25 @@
     return project ? { ...project, steps: project.steps.slice(), edgeCases: project.edgeCases.slice(), rubric: project.rubric.slice() } : null;
   }
 
+  const materials = {
+    logica: ["Sintaxe", "sintaxe"],
+    sintaxe: ["Sintaxe", "sintaxe"],
+    variaveis: ["Tipos de variáveis", "tipos-variaveis"],
+    numeros: ["Números", "numeros"],
+    strings: ["Strings", "strings"],
+    entrada: ["Entrada de dados", "input"],
+    condicoes: ["Condições: if, elif e else", "if-else"],
+    lacos: ["Laços for", "for-loops"],
+    listas: ["Listas", "listas"],
+    funcoes: ["Funções", "funcoes"],
+    depuracao: ["Erros, exceções e testes", "erros-excecoes-testes"]
+  };
+
+  function materialsFor(exercise) {
+    const material = Object.prototype.hasOwnProperty.call(materials, exercise?.unit) ? materials[exercise.unit] : null;
+    return material ? [{ title: "Python Iluminado · " + material[0], url: "https://pythoniluminado.netlify.app/" + material[1] + "/" }] : [];
+  }
+
   function diagnosis(result, exercise, code) {
     const failedIndex = result?.cases?.findIndex(test => test.pass === false) ?? -1;
     const failedCase = failedIndex >= 0 ? result.cases[failedIndex] : null;
@@ -290,6 +309,7 @@
     transferPrompt,
     rubricFor,
     projectFor,
+    materialsFor,
     diagnosis
   };
 })();
