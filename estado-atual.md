@@ -18,6 +18,8 @@ As alterações foram separadas em diretrizes de manutenção, regras de progres
 
 ## Experiência de aprendizagem
 
+O cabeçalho oferece acesso ao [repositório do projeto](https://github.com/jonhvito/pratica-python-basico), no canto superior direito, com ícone do GitHub e texto visível. Abre em nova aba com indicação acessível e área de toque de 44 pixels. No celular, o link fica na primeira linha junto à identidade, e as ações de estudo ocupam as linhas seguintes. O ícone SVG está embutido no HTML, com atribuição e licença dos Octicons, sem carregar recurso externo.
+
 `index.html`, `styles.css`, `manifest.webmanifest` e `treinador.js` apresentam a aplicação como um espaço de estudo contínuo. O roteiro de véspera, a data fixa e o bloco de prioridades para amanhã foram removidos. A entrada oferece continuar o estudo, montar o treino do dia e iniciar o diagnóstico. Revisão de fundamentos e desafio de integração ficam em “Mais formas de praticar”; os 136 exercícios foram preservados.
 
 A busca por título ou conceito aceita diferenças de acentuação e combina unidade com situação: todos, não tentados, erros para revisar e revisão pendente. Digitar na busca mantém o foco. Um resultado vazio permite limpar filtros sem quebrar o exercício aberto ou seus botões de navegação. A lista lateral tem limite de altura também entre 801 e 899 pixels de largura.
@@ -62,7 +64,7 @@ O caderno guarda a variação e a correção original, mostra entrada/esperado/o
 
 ## Cache e publicação
 
-`service-worker.js` usa o cache `python-de-cabeca-v13`, incluindo os módulos de progresso, editor, armazenamento, planejamento e estudo. `.github/workflows/pages.yml` verifica sintaxe, módulos puros, Python local e interface antes de publicar também os novos módulos. As fontes de manutenção e os artefatos de teste não entram na lista de arquivos públicos. Os commits desta revisão são locais; a publicação ocorre quando forem enviados para `main` no GitHub.
+`service-worker.js` usa o cache `python-de-cabeca-v14`, incluindo os módulos de progresso, editor, armazenamento, planejamento e estudo. `.github/workflows/pages.yml` verifica sintaxe, módulos puros, Python local e interface antes de publicar também os novos módulos. As fontes de manutenção e os artefatos de teste não entram na lista de arquivos públicos. Os commits desta revisão são locais; a publicação ocorre quando forem enviados para `main` no GitHub.
 
 O cache remove somente versões antigas de `python-de-cabeca-v`; caches de outras aplicações da mesma origem são preservados. Os arquivos da versão instalada não são atualizados individualmente em segundo plano. Recursos ausentes sem rede recebem resposta controlada 503.
 
@@ -84,6 +86,14 @@ O verificador usa um perfil temporário do sistema para evitar a sincronização
 O progresso é local ao navegador, sem conta ou sincronização automática. A correção Python depende do carregamento do CDN; o cache da interface não garante o interpretador offline. O limite de execução continua em quatro segundos. Domínio e dicas são indicadores de estudo; os casos de teste e as verificações estruturais não provam correção para todas as entradas possíveis.
 
 ## Registro de alterações
+
+### 03/10/2026 — Repositório do projeto no cabeçalho
+
+- **O que foi feito:** link com ícone SVG do GitHub e texto no topo direito, nova aba indicada, foco visível e alvo de toque de 44 pixels; posição adaptada ao celular e cache v14.
+- **Motivo:** facilitar encontrar o código e acompanhar o projeto, mantendo as três referências pedagógicas no rodapé. O endereço foi conferido em `git remote -v`.
+- **Áreas afetadas:** `index.html`, `styles.css`, `service-worker.js` e captura do verificador de interface. Ícone embutido com licença MIT dos Octicons; nenhum arquivo ou dependência de execução adicionado.
+- **Validação:** `node --check service-worker.js`, `node --check verificacao/verificar.cjs`, `node verificacao/conteudo.cjs`, `node verificacao/cache.cjs`, `git diff --check` e `node verificacao/verificar.cjs --layout-only`: aprovados. Cabeçalho conferido no navegador em 1365, 850 e 390 pixels, sem transbordamento; capturas de computador e celular inspecionadas.
+- **Limites:** alteração de apresentação e link; a suíte Python completa não foi repetida porque execução, correção e dados não mudaram. O ícone aparece offline; acessar o repositório exige internet.
 
 ### 03/10/2026 — Compreensão, experimentação e recuperação do erro
 

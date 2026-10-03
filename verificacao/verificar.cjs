@@ -266,6 +266,7 @@ async function checked() {
       assert.equal(await evaluate("(() => { if(window.innerWidth<=800) return !document.getElementById('exercise-catalog').open && document.activeElement.id==='exercise-title'; const nav = document.getElementById('exercise-list').getBoundingClientRect(); const active = document.querySelector('.exercise-link[aria-current=true]').getBoundingClientRect(); return active.top >= nav.top - 1 && active.bottom <= nav.bottom + 1; })()"), true);
       assert.equal(await evaluate("document.documentElement.scrollWidth <= window.innerWidth"), true);
       await input("");
+      await evaluate("window.scrollTo(0,0)");
       const screenshot = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: width === 390 });
       fs.writeFileSync(path.join(artifacts, width === 390 ? "celular.png" : "desktop.png"), Buffer.from(screenshot.data, "base64"));
     }

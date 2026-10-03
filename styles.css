@@ -31,6 +31,10 @@ button:disabled { opacity: .5; cursor: default; }
 @media (min-width: 801px) { .exercise-catalog > summary { display: none; } }
 .site-header { max-width: 1380px; margin: auto; padding: 24px 36px; display: flex; align-items: center; justify-content: space-between; gap: 20px; border-bottom: 1px solid var(--line); }
 .brand { display: flex; gap: 12px; align-items: center; }
+.brand, .brand div { min-width: 0; }
+.project-github-link { display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex-shrink: 0; min-height: 44px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 6px; color: var(--green-dark); background: var(--surface); font-size: 13px; line-height: 1.4; text-decoration: none; }
+.project-github-link:hover { border-color: var(--green); background: var(--green-soft); }
+.project-github-link svg { flex-shrink: 0; }
 .brand-mark { font: bold 25px var(--mono); color: var(--green); padding: 8px; border: 1px solid var(--line); border-radius: 7px; }
 .brand strong { display: block; font-size: 15px; font-weight: 600; }
 .brand div > span { display: block; font-size: 12px; color: var(--muted); }
@@ -274,6 +278,9 @@ dialog::backdrop { background: #192b2266; }
 @media (max-width: 1379px) { .study-references { margin-right: 36px; margin-left: 36px; } }
 @media (max-width: 800px) {
   .site-header { padding: 18px 20px; flex-wrap: wrap; }
+  .site-header .brand { flex: 1; }
+  .project-github-link { order: 1; }
+  .header-actions { order: 2; width: 100%; }
   .intro { padding: 26px 20px; }
   .learning-start { padding: 0 20px 20px; }
   .study-launcher { align-items: stretch; flex-direction: column; gap: 12px; padding: 16px; }
