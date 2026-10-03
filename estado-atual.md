@@ -16,6 +16,8 @@ Os commits seguem Conventional Commits, com prefixo convencional, descrição em
 
 As alterações foram separadas em diretrizes de manutenção, regras de progresso e backup, editor e diagnóstico, e integração da experiência de aprendizagem. Cada etapa atualiza este registro.
 
+`README.md` apresenta o objetivo, início e retomada do estudo, recursos pedagógicos, dados locais, limites offline, referências e comandos opcionais de manutenção. O About de `jonhvito/pratica-python-basico` no GitHub descreve a aprendizagem com compreensão e autonomia, 136 atividades, treino adaptativo, revisões e correção no navegador, sem cadastro. Seu campo de site aponta para `https://jonhvito.github.io/pratica-python-basico/`.
+
 ## Experiência de aprendizagem
 
 O cabeçalho oferece acesso ao [repositório do projeto](https://github.com/jonhvito/pratica-python-basico), no canto superior direito, com ícone do GitHub e texto visível. Abre em nova aba com indicação acessível e área de toque de 44 pixels. No celular, o link fica na primeira linha junto à identidade, e as ações de estudo ocupam as linhas seguintes. O ícone SVG está embutido no HTML, com atribuição e licença dos Octicons, sem carregar recurso externo.
@@ -86,6 +88,14 @@ O verificador usa um perfil temporário do sistema para evitar a sincronização
 O progresso é local ao navegador, sem conta ou sincronização automática. A correção Python depende do carregamento do CDN; o cache da interface não garante o interpretador offline. O limite de execução continua em quatro segundos. Domínio e dicas são indicadores de estudo; os casos de teste e as verificações estruturais não provam correção para todas as entradas possíveis.
 
 ## Registro de alterações
+
+### 03/10/2026 — Apresentação no README e no About
+
+- **O que foi feito:** README organizado com início e retomada, recursos atuais, limites do progresso local e do Python offline, comandos de verificação e etapas reais da publicação. About atualizado no GitHub com a descrição “Aplicação para aprender Python com compreensão e autonomia: 136 atividades, treino adaptativo, revisões e correção no navegador. Sem cadastro.” e endereço do site.
+- **Motivo:** o About ainda apresentava revisão para prova e simulados, sem link para a aplicação; o README resumia a publicação apenas como verificação de JavaScript e catálogo, omitindo as verificações adicionais atuais.
+- **Áreas afetadas:** `README.md`, este registro e os campos descrição/site do repositório no GitHub. As três referências pedagógicas foram preservadas. Nenhum arquivo de execução, formato de dados ou configuração de publicação foi alterado.
+- **Validação:** conferência com `index.html`, `treinador.js`, `estudo.js`, verificadores e `.github/workflows/pages.yml`; referências locais do README verificadas com PowerShell; `git diff --check` aprovado. `gh repo edit jonhvito/pratica-python-basico --description ... --homepage ...` concluído e `gh repo view jonhvito/pratica-python-basico --json description,homepageUrl` confirmou os dois campos no GitHub.
+- **Limites:** testes da aplicação não foram repetidos porque a alteração é exclusivamente documental e de apresentação do repositório. A consulta inicial do GitHub foi bloqueada pela rede do sandbox e concluída ao repetir com acesso à rede. O About já está publicado; o README local será atualizado no GitHub quando o commit for enviado.
 
 ### 03/10/2026 — Repositório do projeto no cabeçalho
 
