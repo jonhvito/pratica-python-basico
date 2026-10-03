@@ -25,11 +25,12 @@ jobs:
           node verificacao/progresso.cjs
           node verificacao/editor.cjs
           node verificacao/cache.cjs
+          node verificacao/armazenamento.cjs
       - uses: actions/configure-pages@v5
       - name: Preparar arquivos públicos
         run: |
           mkdir _site
-          cp index.html styles.css exercicios.js curriculo.js professor.js python.js aprendizagem.js progresso.js editor.js treinador.js manifest.webmanifest icone.svg service-worker.js .nojekyll _site/
+          cp index.html styles.css exercicios.js curriculo.js professor.js python.js aprendizagem.js progresso.js armazenamento.js editor.js treinador.js manifest.webmanifest icone.svg service-worker.js .nojekyll _site/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

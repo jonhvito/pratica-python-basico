@@ -7,6 +7,10 @@
   const byId = new Map(exercises.map(exercise => [exercise.id, exercise]));
   const $ = id => document.getElementById(id);
   const storageKey = "python-de-cabeca-v1";
+  const storage = window.STORAGE_ENGINE.create({ storage: () => window.localStorage, exercises });
+  const loadedStorage = storage.load();
+  let lastStorageResult = null;
+  let saveTimer = null;
   const day = 24 * 60 * 60 * 1000;
   const formats = {
     write: ["Escrever do zero", "Recupere a solução de memória, sem apoio inicial."],
@@ -80,7 +84,7 @@
     if (!value || typeof value !== "object") return clean;
     clean.records = value.records && typeof value.records === "object" ? value.records : {};
     clean.attempts = Array.isArray(value.attempts) ? value.attempts.slice(-400) : [];
-    clean.mistakes = Array.isArray(value.mistakes) ? value.mistakes.slice(-120) : [];
+    clean.mistakes = Array.isArray(value.mistakes) ? value.mistakes.filter(item => byId.has(item.exerciseId)).slice(-120) : [];
     clean.sessions = Array.isArray(value.sessions) ? value.sessions.slice(-100) : [];
     clean.streak = value.streak && typeof value.streak === "object" ? value.streak : clean.streak;
     return clean;
@@ -136,7 +140,7 @@
   function loadState() {
     const fresh = initialState();
     try {
-      const saved = JSON.parse(localStorage.getItem(storageKey));
+      const saved = loadedStorage.state;
       if (!saved || typeof saved !== "object") return fresh;
       if (byId.has(saved.activeId)) fresh.activeId = saved.activeId;
       if (["practice", "coach", "exam"].includes(saved.lastMode)) fresh.lastMode = saved.lastMode;
@@ -170,14 +174,29 @@
   }
 
   function save() {
+    clearTimeout(saveTimer); saveTimer = null;
     state.version = 4;
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(state));
-      storageAvailable = true;
-    } catch (_) { storageAvailable = false; }
-    $("storage-status").textContent = storageAvailable
-      ? "Progresso e rascunhos salvos neste navegador."
-      : "O navegador não permitiu salvar. Mantenha esta aba aberta para não perder o progresso.";
+    lastStorageResult = storage.save(state);
+    storageAvailable = lastStorageResult.ok;
+    renderStorageStatus();
+  }
+
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(save, 350);
+    if (storageAvailable) $("storage-status").textContent = "Alterações em memória; salvando em instantes…";
+  }
+
+  function renderStorageStatus() {
+    const issue = lastStorageResult && (!lastStorageResult.ok || lastStorageResult.message);
+    const message = issue ? lastStorageResult.message : "Progresso e rascunhos salvos neste navegador.";
+    $("storage-status").textContent = message;
+    $("storage-notice").hidden = !issue;
+    $("storage-notice-text").textContent = message + (storageAvailable ? "" : " As alterações desta aba continuam disponíveis para exportação.");
+    $("export-original").hidden = storage.exportOriginal() === null || loadedStorage.writable;
+    $("export-archive").hidden = storage.exportArchive() === null;
+    $("recover-valid").hidden = !loadedStorage.recovery;
+    $("reload-progress").hidden = lastStorageResult?.status !== "conflict";
   }
 
   function element(tag, text, className) {
@@ -544,7 +563,7 @@
     setAnswer(exercise.id, $("answer").value);
     if (mode === "coach") state.coach.results[exercise.id] = null;
     else if (mode === "practice") draft(exercise.id).result = null;
-    save();
+    scheduleSave();
     $("feedback").hidden = true;
     codeEditor.sync({ codeMode: ["program", "function"].includes(exercise.kind), errorLine: null });
     renderNavigation(); renderState();
@@ -803,7 +822,8 @@
         const td = document.createElement("td"); const input = document.createElement("input");
         const names = { step: "Linha ou etapa", variables: "Variáveis", output: "Saída" };
         input.value = row[field] || ""; input.setAttribute("aria-label", names[field] + " da etapa " + (index + 1));
-        input.addEventListener("input", () => { row[field] = input.value; save(); });
+        input.addEventListener("input", () => { row[field] = input.value; scheduleSave(); });
+        input.addEventListener("blur", save);
         td.append(input); tr.append(td);
       });
       const action = document.createElement("td"); const remove = element("button", "×", "icon-button");
@@ -1179,7 +1199,8 @@
   }
 
   function exportData() {
-    const payload = { app: "python-de-cabeca", exportedAt: new Date().toISOString(), version: 4, state };
+    if (saveTimer !== null) save();
+    const payload = { app: "python-de-cabeca", exportedAt: new Date().toISOString(), version: 4, state: storage.exportState(state) };
     const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }));
     const link = document.createElement("a"); link.href = url; link.download = "python-de-cabeca-backup-" + dateKey() + ".json"; link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000); $("data-status").textContent = "Backup exportado. Guarde o arquivo em um local seguro.";
@@ -1212,9 +1233,9 @@
 
   function confirmImport() {
     if (!pendingImport || busy) return;
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(pendingImport.state)); window.location.reload();
-    } catch (error) { $("data-status").textContent = "Não foi possível salvar o backup: " + error.message; }
+    const result = storage.replace(pendingImport.state);
+    if (result.ok) window.location.reload();
+    else { lastStorageResult = result; renderStorageStatus(); $("data-status").textContent = result.message; }
   }
 
   function resetCurrent() {
@@ -1239,6 +1260,7 @@
   }
 
   $("answer").addEventListener("input", recordInput);
+  $("answer").addEventListener("blur", () => { if (saveTimer !== null) save(); });
   $("answer").addEventListener("keydown", event => {
     if (event.key === "Escape") { escapeTab = true; return; }
     if (event.key === "Tab" && escapeTab) { escapeTab = false; return; }
@@ -1268,7 +1290,23 @@
   $("close-learning").onclick = () => $("learning-dialog").close();
   $("mistakes-button").onclick = () => { renderMistakes(); $("mistakes-dialog").showModal(); };
   $("close-mistakes").onclick = () => $("mistakes-dialog").close();
-  $("data-button").onclick = () => { $("data-status").textContent = ""; $("data-dialog").showModal(); };
+  $("data-button").onclick = () => { renderStorageStatus(); $("data-status").textContent = lastStorageResult?.message || ""; $("data-dialog").showModal(); };
+  $("open-storage-data").onclick = () => $("data-button").click();
+  function exportRecovery(raw, name) {
+    if (raw === null) return;
+    const url = URL.createObjectURL(new Blob([raw], { type: "text/plain;charset=utf-8" }));
+    const link = document.createElement("a"); link.href = url; link.download = name + "-" + dateKey() + ".txt"; link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    $("data-status").textContent = "Conteúdo exportado sem modificações para recuperação.";
+  }
+  $("export-original").onclick = () => exportRecovery(storage.exportOriginal(), "python-de-cabeca-original");
+  $("export-archive").onclick = () => exportRecovery(storage.exportArchive(), "python-de-cabeca-recuperacao");
+  $("recover-valid").onclick = () => {
+    const result = storage.recover();
+    if (result.ok) window.location.reload();
+    else $("data-status").textContent = result.message;
+  };
+  $("reload-progress").onclick = () => { if (window.confirm("Recarregar descarta as alterações que estão somente nesta aba. Exporte-as antes, se precisar. Continuar?")) window.location.reload(); };
   $("close-data").onclick = () => $("data-dialog").close();
   $("data-dialog").addEventListener("close", cancelImport);
   $("export-data").onclick = exportData;
@@ -1277,8 +1315,10 @@
   $("cancel-import").onclick = () => { cancelImport(); $("data-status").textContent = "Importação cancelada. Seu progresso foi mantido."; };
   $("export-before-import").onclick = exportData;
   $("clear-data").onclick = () => {
-    if (!window.confirm("Apagar permanentemente rascunhos, histórico, erros e domínio deste navegador?")) return;
-    localStorage.removeItem(storageKey); window.location.reload();
+    if (!window.confirm("Apagar rascunhos, histórico, erros e domínio deste navegador? Arquivos de recuperação anteriores serão preservados em Dados e backup.")) return;
+    const result = storage.clear();
+    if (result.ok) window.location.reload();
+    else $("data-status").textContent = result.message;
   };
   $("start-recommended").onclick = () => { $("learning-dialog").close(); startCoach(false); };
   $("curriculum-button").onclick = () => { renderCurriculum(); $("curriculum-dialog").showModal(); };
@@ -1326,6 +1366,13 @@
   }
   window.addEventListener("online", renderConnection);
   window.addEventListener("offline", renderConnection);
+  window.addEventListener("storage", event => {
+    if (event.key === storageKey || event.key === null) {
+      const check = storage.check();
+      if (!check.ok) { lastStorageResult = check; renderStorageStatus(); }
+    }
+  });
+  window.addEventListener("pagehide", () => { if (saveTimer !== null) save(); });
   renderConnection();
   if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("service-worker.js").catch(() => {});
   setInterval(updateClocks, 1000);

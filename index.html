@@ -15,6 +15,7 @@
   <script defer src="python.js"></script>
   <script defer src="aprendizagem.js"></script>
   <script defer src="progresso.js"></script>
+  <script defer src="armazenamento.js"></script>
   <script defer src="editor.js"></script>
   <script defer src="treinador.js"></script>
 </head>
@@ -69,6 +70,7 @@
       <p class="storage-note" id="storage-status" role="status">Rascunhos salvos neste navegador.</p>
     </aside>
     <main id="main">
+      <section id="storage-notice" class="storage-notice" role="status" hidden><p id="storage-notice-text"></p><button id="open-storage-data" class="quiet">Abrir recuperação de dados</button></section>
       <section id="coach-panel" class="coach-panel" hidden aria-label="Treino recomendado">
         <div>
           <p class="eyebrow">SESSÃO ADAPTATIVA</p>
@@ -185,6 +187,10 @@
     <p>Rascunhos, tentativas e domínio ficam apenas neste navegador. Exporte um backup para levar o progresso a outro computador.</p>
     <div class="data-actions">
       <button id="export-data" class="primary">Exportar backup</button>
+      <button id="export-original" class="quiet" hidden>Exportar conteúdo original para recuperação</button>
+      <button id="export-archive" class="quiet" hidden>Exportar arquivo de recuperação preservado</button>
+      <button id="recover-valid" class="quiet" hidden>Restaurar última cópia válida</button>
+      <button id="reload-progress" class="quiet" hidden>Recarregar progresso da outra aba</button>
       <label class="file-button">Importar backup<input id="import-data" type="file" accept="application/json,.json"></label>
       <button id="clear-data" class="danger-button">Apagar todo o progresso</button>
     </div>
@@ -195,6 +201,7 @@
       <div class="import-actions"><button id="export-before-import" class="quiet">Exportar progresso atual</button><button id="confirm-import" class="primary">Importar este backup</button><button id="cancel-import" class="quiet">Cancelar</button></div>
     </section>
     <p id="data-status" class="small muted" role="status"></p>
+    <p class="small muted">Ao restaurar dados ilegíveis, o conteúdo original é preservado para recuperação. Antes de recarregar outra aba, exporte as alterações que estão somente nesta aba.</p>
   </dialog>
   <dialog id="recall-dialog" aria-labelledby="recall-title">
     <div class="dialog-heading"><h2 id="recall-title">Observe e reconstrua</h2><span id="recall-clock" class="clock">20</span></div>

@@ -16,6 +16,8 @@ button:disabled { opacity: .5; cursor: default; }
 .skip-link { position: fixed; top: 8px; left: 8px; z-index: 100; transform: translateY(-180%); padding: 10px 16px; background: white; color: var(--green-dark); }
 .skip-link:focus { transform: none; }
 .exercise-catalog > summary { padding: 10px 12px; margin-bottom: 12px; border: 1px solid var(--line); border-radius: 6px; color: var(--green-dark); cursor: pointer; }
+.storage-notice { padding: 14px 18px; margin-bottom: 18px; border: 1px solid #dbc89c; border-radius: 6px; background: var(--amber-soft); }
+.storage-notice p { margin: 0 0 10px; }
 @media (min-width: 801px) { .exercise-catalog > summary { display: none; } }
 .site-header { max-width: 1380px; margin: auto; padding: 24px 36px; display: flex; align-items: center; justify-content: space-between; gap: 20px; border-bottom: 1px solid var(--line); }
 .brand { display: flex; gap: 12px; align-items: center; }

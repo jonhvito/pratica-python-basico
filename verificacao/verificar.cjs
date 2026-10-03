@@ -108,6 +108,17 @@ async function checked() {
   assert.deepEqual(await evaluate("(() => { const ids = [...document.querySelectorAll('[id]')].map(node => node.id); return ids.filter((id, index) => ids.indexOf(id) !== index); })()"), []);
   assert.equal(await evaluate("[...document.querySelectorAll('button')].every(button => (button.textContent || button.getAttribute('aria-label') || '').trim())"), true);
   assert.equal(await evaluate("document.getElementById('answer').value"), "");
+  await evaluate("localStorage.setItem('python-de-cabeca-v1', '{conteudo truncado')");
+  await send("Page.reload");
+  await waitFor(() => evaluate("document.getElementById('storage-notice') && !document.getElementById('storage-notice').hidden"), "aviso de progresso protegido");
+  assert.equal(await evaluate("localStorage.getItem('python-de-cabeca-v1')"), "{conteudo truncado");
+  await click("data-button");
+  assert.equal(await evaluate("!document.getElementById('export-original').hidden && !document.getElementById('recover-valid').hidden"), true);
+  await click("recover-valid");
+  await waitFor(() => evaluate("document.querySelectorAll('.exercise-link').length===136 && document.getElementById('storage-notice').hidden"), "restauração da cópia válida");
+  assert.equal(await evaluate("localStorage.getItem('python-de-cabeca-v1:recuperacao').includes('conteudo truncado')"), true);
+  await evaluate("window.confirm=()=>true");
+  console.log("OK: progresso truncado não é sobrescrito; restauração preserva o original.");
   assert.deepEqual(await evaluate("({ exercises: EXERCISES.length, unique: new Set(EXERCISES.map(ex => ex.id)).size, units: CURRICULUM.units.length, kinds: [...new Set(EXERCISES.map(ex => ex.kind))].sort() })"), { exercises: 136, unique: 136, units: 11, kinds: ["choice", "function", "order", "program", "trace"] });
   await click("curriculum-button");
   assert.equal(await evaluate("document.getElementById('curriculum-dialog').open && document.querySelectorAll('.curriculum-card').length === 11"), true);
@@ -185,7 +196,7 @@ async function checked() {
   await input("if True:");
   await evaluate("(() => { const field=document.getElementById('answer'); field.setSelectionRange(field.value.length,field.value.length); field.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true})); })()");
   assert.equal(await evaluate("document.getElementById('answer').value"), "if True:\n    ");
-  assert.equal(await evaluate("JSON.parse(localStorage.getItem('python-de-cabeca-v1')).drafts.ola.code"), "if True:\n    ");
+  await waitFor(() => evaluate("JSON.parse(localStorage.getItem('python-de-cabeca-v1')).drafts.ola.code === 'if True:\\n    '"), "gravação agrupada do rascunho");
   assert.equal(await evaluate("document.querySelectorAll('.editor-line-number').length"), 2);
   await evaluate("document.getElementById('answer').dispatchEvent(new KeyboardEvent('keydown',{key:'Backspace',bubbles:true,cancelable:true}))");
   assert.equal(await evaluate("document.getElementById('answer').value"), "if True:\n");

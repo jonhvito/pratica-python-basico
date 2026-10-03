@@ -1,6 +1,6 @@
 # Estado atual da aplicação
 
-Atualizado em 02/10/2026.
+Atualizado em 03/10/2026.
 
 ## Aplicação e objetivo
 
@@ -40,6 +40,10 @@ O rodapé mantém três referências, que abrem em nova aba: [site do professor]
 
 `verificacao/progresso.cjs` cobre essas regras, a migração e os formatos de backup.
 
+`armazenamento.js` protege a leitura e a escrita. Dados inválidos, versões futuras, falhas de acesso e alterações feitas em outra aba não são substituídos automaticamente. Um aviso persistente permite exportar o original sem transformações, recuperar a última cópia válida ou recarregar após um conflito. As chaves auxiliares `python-de-cabeca-v1:ultimo-valido` e `python-de-cabeca-v1:recuperacao` guardam a cópia válida e originais protegidos. Campos e atividades desconhecidos são preservados em gravações e exportações; atividades indisponíveis não aparecem no caderno. Limpar o progresso remove a cópia válida, mas conserva arquivos de recuperação anteriores.
+
+A digitação agrupa gravações em 350 ms e grava imediatamente ao sair do campo, navegar ou receber `pagehide`. A cópia válida pode ficar desatualizada se sua gravação falhar após salvar o progresso principal; a interface informa essa condição. O armazenamento local não oferece uma transação entre abas, embora alterações detectáveis sejam bloqueadas antes de escrever.
+
 ## Editor e diagnóstico
 
 `editor.js` mantém o campo de texto nativo e oferece números de linha, rolagem sincronizada, recuo ao pressionar Enter, remoção de recuo com Backspace e indicação acessível da linha com erro. A inserção nativa preserva desfazer/refazer quando disponível. A comparação de resultados mostra a primeira diferença, evidencia espaços e limites de linha e oferece um bloco recolhido com os dois resultados completos, limitado a 8.000 caracteres por saída.
@@ -50,7 +54,7 @@ O rodapé mantém três referências, que abrem em nova aba: [site do professor]
 
 ## Cache e publicação
 
-`service-worker.js` usa o cache `python-de-cabeca-v9`, incluindo `progresso.js` e `editor.js`. `.github/workflows/pages.yml` verifica os conjuntos de testes sem navegador e publica também os novos módulos. As fontes de manutenção e os artefatos de teste não entram na lista de arquivos públicos. Os commits desta revisão são locais; a publicação ocorre quando forem enviados para `main` no GitHub.
+`service-worker.js` usa o cache `python-de-cabeca-v10`, incluindo `progresso.js`, `editor.js` e `armazenamento.js`. `.github/workflows/pages.yml` verifica os conjuntos de testes sem navegador e publica também os novos módulos. As fontes de manutenção e os artefatos de teste não entram na lista de arquivos públicos. Os commits desta revisão são locais; a publicação ocorre quando forem enviados para `main` no GitHub.
 
 O cache remove somente versões antigas de `python-de-cabeca-v`; caches de outras aplicações da mesma origem são preservados. Os arquivos da versão instalada não são atualizados individualmente em segundo plano. Recursos ausentes sem rede recebem resposta controlada 503.
 
@@ -70,6 +74,14 @@ O verificador usa um perfil temporário do sistema para evitar a sincronização
 O progresso é local ao navegador, sem conta ou sincronização automática. A correção Python depende do carregamento do CDN; o cache da interface não garante o interpretador offline. O limite de execução continua em quatro segundos. Domínio e dicas são indicadores de estudo; os casos de teste e as verificações estruturais não provam correção para todas as entradas possíveis.
 
 ## Registro de alterações
+
+### 03/10/2026 — Proteção, recuperação e gravação do progresso
+
+- **O que foi feito:** módulo de armazenamento com cópia válida, exportação do original, arquivo de recuperação, proteção de versões futuras e conflitos entre abas; preservação de campos desconhecidos; gravações agrupadas durante digitação e cache v10.
+- **Motivo:** impedir que uma falha de leitura apague silenciosamente o progresso e evitar trabalho pesado a cada tecla. A revisão identificou e corrigiu cópias repetidas de dados desconhecidos e buscas quadráticas em históricos.
+- **Áreas afetadas:** `armazenamento.js`, interface de dados, `treinador.js`, estilos, cache, publicação e verificações de armazenamento e navegador. O formato principal permanece na versão 4; as duas chaves auxiliares são locais.
+- **Validação:** `node --check treinador.js`, `node --check armazenamento.js`, `node verificacao/armazenamento.cjs` (31 verificações), `node verificacao/conteudo.cjs`, `git diff --check` e `node verificacao/verificar.cjs --layout-only`: aprovados. No navegador, JSON truncado permaneceu intacto e a restauração preservou o original; gravação agrupada e layouts 1365, 850 e 390 pixels passaram.
+- **Limites:** Web Storage não oferece transações entre abas; mudanças simultâneas na janela mínima entre comparação e escrita ainda podem concorrer. Quota pode impedir atualizar a cópia válida após salvar o principal, com aviso. Medições de histórico sintético não representam desempenho em aparelho físico. Limpar progresso conserva arquivos de recuperação anteriores.
 
 ### 02/10/2026 — Navegação no celular e foco acessível
 
