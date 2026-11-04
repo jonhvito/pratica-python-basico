@@ -19,6 +19,9 @@
   <script defer src="armazenamento.js"></script>
   <script defer src="editor.js"></script>
   <script defer src="estudo.js"></script>
+  <script defer src="lista-avaliacao.js"></script>
+  <script defer src="lista-testes.js"></script>
+  <script defer src="lista-interface.js"></script>
   <script defer src="treinador.js"></script>
 </head>
 <body>
@@ -74,6 +77,7 @@
       <p class="small muted">Recupere os fundamentos em uma sequência guiada ou combine diferentes conceitos em um desafio com correção ao final.</p>
       <div class="course-actions"><button id="course-review-button" class="quiet">Revisão de fundamentos · 12 questões</button><button id="course-exam-button" class="quiet">Desafio de integração · 6 questões</button></div>
       <div class="course-actions"><button data-project="curso-frequencias" class="quiet">Projeto · Frequências</button><button data-project="curso-medias-filiais" class="quiet">Projeto · Vendas por filial</button></div>
+      <div class="course-actions"><button id="lista-open" class="quiet">Lista da segunda avaliação</button></div>
     </details>
   </section>
   <div class="workspace">
@@ -191,6 +195,32 @@
     <section id="current-unit-card" class="recommended-card curriculum-recommendation"></section>
     <div class="curriculum-actions"><button id="start-diagnostic" class="quiet">Fazer diagnóstico inicial</button><span class="small muted">11 atividades · escrita, leitura e ordenação · estimativa de ponto de partida</span></div>
     <div id="curriculum-list" class="curriculum-list"></div>
+  </dialog>
+  <dialog id="lista-dialog" class="wide-dialog lista-dialog" aria-labelledby="lista-title">
+    <div class="dialog-heading"><h2 id="lista-title">Lista da segunda avaliação</h2><button id="lista-close" class="quiet">Fechar ✕</button></div>
+    <p>Resolva de memória. Nos exercícios 1, 2, 6, 7 e 8, a orientação é refazer sem consultar anotações. O apoio abaixo abre apenas quando você quiser.</p>
+    <details id="lista-revisao"><summary>Revisão por tópicos · páginas 2–10</summary><div id="lista-topicos"></div></details>
+    <div class="lista-grid">
+      <div><label for="lista-selecao">Exercício da lista</label><select id="lista-selecao"></select></div>
+      <article aria-labelledby="lista-exercicio-titulo">
+        <h3 id="lista-exercicio-titulo"></h3><p id="lista-pagina" class="small muted"></p>
+        <p id="lista-primeira" class="rule" hidden>Primeira tentativa: refaça sem consultar anotações.</p>
+        <div id="lista-enunciado" class="lista-enunciado"></div>
+        <details id="lista-dica"><summary>Consultar dica</summary><p id="lista-dica-texto"></p></details>
+        <details id="lista-criterios"><summary>Conferir critérios e respostas de referência</summary><p id="lista-criterios-texto"></p></details>
+        <p class="small muted">Os exemplos são da lista. Fora do domínio especificado, escolha e documente seu comportamento; não há exigência adicional presumida.</p>
+        <label for="lista-codigo">Seu código Python</label><textarea id="lista-codigo" spellcheck="false" autocapitalize="off" placeholder="Escreva as funções e chamadas de teste aqui…"></textarea>
+        <p class="small muted">Tab insere recuo; Esc e depois Tab sai do campo. Ctrl+Enter executa.</p>
+        <label id="lista-dependencia-wrap" hidden><input id="lista-dependencia" type="checkbox"> Incluir o código salvo do exercício anterior necessário à execução</label>
+        <label for="lista-subitem">Subitem para verificar</label><select id="lista-subitem"></select>
+        <div class="course-actions"><button id="lista-verificar" class="primary">Verificar subitem</button><button id="lista-executar" class="quiet">Executar livremente</button><button id="lista-parar" class="quiet" hidden>Parar execução</button></div>
+        <p class="small muted">A verificação executa casos finitos em Python e apresenta resultados e indícios de restrições separadamente; não prova correção geral nem cumprimento integral do método. Na execução livre, inclua chamadas e print. Subitens discursivos e outros não listados exigem autoconferência. Nenhuma verificação atribui domínio à trilha anterior. Python é carregado pela internet.</p>
+        <pre id="lista-saida" aria-live="polite">A saída aparecerá aqui.</pre>
+        <label for="lista-notas">Respostas, explicações e autoconferência</label><textarea id="lista-notas" placeholder="Registre previsões, justificativas, resultados e confira as restrições de cada subitem."></textarea>
+        <p class="small muted">Rascunhos e notas entram no backup do aplicativo. A conferência de explicações e restrições é pessoal, não uma correção automática de prosa.</p>
+        <p id="lista-save-status" class="small" role="status"></p>
+      </article>
+    </div>
   </dialog>
   <dialog id="learning-dialog" class="wide-dialog" aria-labelledby="learning-title">
     <div class="dialog-heading"><div><p class="eyebrow">PAINEL LOCAL</p><h2 id="learning-title">Meu aprendizado</h2></div><button id="close-learning" class="quiet" aria-label="Fechar painel">Fechar ✕</button></div>

@@ -148,6 +148,58 @@ async function checked() {
   await evaluate("window.confirm=()=>true");
   console.log("OK: progresso truncado não é sobrescrito; restauração preserva o original.");
   assert.deepEqual(await evaluate("({ exercises: EXERCISES.length, unique: new Set(EXERCISES.map(ex => ex.id)).size, units: CURRICULUM.units.length, kinds: [...new Set(EXERCISES.map(ex => ex.kind))].sort() })"), { exercises: 136, unique: 136, units: 11, kinds: ["choice", "function", "order", "program", "trace"] });
+  await click("lista-open");
+  assert.equal(await evaluate("document.getElementById('lista-dialog').open && document.querySelectorAll('#lista-selecao option').length===20 && !document.getElementById('lista-revisao').open && !document.getElementById('lista-dica').open && !document.getElementById('lista-primeira').hidden"), true);
+  await evaluate("document.getElementById('lista-codigo').value=\"def sinal(x):\\n    return '+' if x > 0 else '-' if x < 0 else '0'\"; document.getElementById('lista-codigo').dispatchEvent(new Event('input',{bubbles:true})); document.getElementById('lista-notas').value='anotação de teste'; document.getElementById('lista-notas').dispatchEvent(new Event('input',{bubbles:true}));");
+  await click("lista-close");
+  await send("Page.reload");
+  await waitFor(() => evaluate("document.querySelectorAll('.exercise-link').length === 136"), "recarga da lista");
+  await evaluate("window.confirm=()=>true");
+  await click("lista-open");
+  assert.equal(await evaluate("document.getElementById('lista-notas').value==='anotação de teste' && document.getElementById('lista-codigo').value.includes('def sinal')"), true);
+  for (const width of [1365, 850, 390]) {
+    await send("Emulation.setDeviceMetricsOverride", {width, height: 844, deviceScaleFactor: 1, mobile: width === 390});
+    assert.equal(await evaluate("document.getElementById('lista-dialog').scrollWidth <= document.getElementById('lista-dialog').clientWidth + 1"), true);
+    if (width !== 850) fs.writeFileSync(path.join(artifacts, `lista-${width}.png`), Buffer.from((await send("Page.captureScreenshot", {format:"png"})).data, "base64"));
+  }
+  await send("Emulation.setDeviceMetricsOverride", {width: 1365, height: 1000, deviceScaleFactor: 1, mobile: false});
+  if (!process.argv.includes("--layout-only")) {
+    await evaluate("document.getElementById('lista-selecao').value='2'; document.getElementById('lista-selecao').dispatchEvent(new Event('change',{bubbles:true})); document.getElementById('lista-codigo').value=\"def sinal_vec(valores):\\n    return [sinal(x) for x in valores]\\nprint(sinal_vec([4,-1,0]))\"; document.getElementById('lista-codigo').dispatchEvent(new Event('input',{bubbles:true})); document.getElementById('lista-dependencia').checked=true;");
+    await click("lista-executar");
+    await waitFor(() => evaluate("!document.getElementById('lista-executar').disabled"), "execução Pyodide da lista", 80000);
+    assert.match(await evaluate("document.getElementById('lista-saida').textContent"), /\['\+', '-', '0'\]/);
+    await evaluate("document.getElementById('lista-subitem').value='2a'; document.getElementById('lista-subitem').dispatchEvent(new Event('change',{bubbles:true}));");
+    await click("lista-verificar");
+    assert.equal(await evaluate("document.getElementById('lista-codigo').disabled && document.getElementById('lista-notas').disabled && document.getElementById('lista-close').disabled"), true);
+    await waitFor(() => evaluate("!document.getElementById('lista-verificar').disabled"), "correção de dependência", 80000);
+    assert.match(await evaluate("document.getElementById('lista-saida').textContent"), /Caso 1: passou/);
+    await evaluate(`(() => {const s=document.getElementById('lista-selecao'); s.value='20'; s.dispatchEvent(new Event('change',{bubbles:true})); const c=document.getElementById('lista-codigo'); c.value="def resumo(dados, /, casas=2, *, medida='media'):\\n    if medida=='media': valor=sum(dados)/len(dados)\\n    elif medida=='amplitude': valor=max(dados)-min(dados)\\n    elif medida=='mediana':\\n        s=sorted(dados)\\n        n=len(s)\\n        valor=s[n//2] if n%2 else (s[n//2-1]+s[n//2])/2\\n    else: return None\\n    return round(valor,casas)"; c.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+    await click("lista-verificar");
+    await waitFor(() => evaluate("!document.getElementById('lista-verificar').disabled"), "correção de parâmetros especiais", 80000);
+    assert.equal(await evaluate("document.getElementById('lista-saida').textContent.includes('Erro esperado: TypeError') && !document.getElementById('lista-saida').textContent.includes('não passou')"), true);
+    await evaluate(`(() => {const s=document.getElementById('lista-selecao');s.value='16';s.dispatchEvent(new Event('change',{bubbles:true}));const item=document.getElementById('lista-subitem'); item.value='16b';item.dispatchEvent(new Event('change',{bubbles:true}));const c=document.getElementById('lista-codigo'); c.value="def imprime_tabela(freq):\\n    total=sum(freq.values())\\n    print('Categoria Abs. Rel. %')\\n    for nome,n in freq.items():\\n        print(f'{nome} {n} {n/total:.2f} {100*n/total:.1f}%')";c.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+    await click("lista-verificar");
+    await waitFor(() => evaluate("!document.getElementById('lista-verificar').disabled"), "correção de saída impressa", 80000);
+    assert.equal(await evaluate("document.getElementById('lista-saida').textContent.includes('Saída esperada:') && document.getElementById('lista-saida').textContent.includes('Saída obtida:') && document.getElementById('lista-saida').textContent.includes('Caso 1: passou')"), true);
+    for (const width of [1365, 390]) {
+      await send("Emulation.setDeviceMetricsOverride", {width, height:844, deviceScaleFactor:1, mobile:width===390});
+      await evaluate("document.getElementById('lista-saida').scrollIntoView({block:'center'})");
+      fs.writeFileSync(path.join(artifacts, `lista-resultado-${width}.png`), Buffer.from((await send("Page.captureScreenshot", {format:'png'})).data, 'base64'));
+    }
+    await send("Emulation.setDeviceMetricsOverride", {width:1365,height:1000,deviceScaleFactor:1,mobile:false});
+    await evaluate("document.getElementById('lista-codigo').dispatchEvent(new Event('blur'))");
+    await evaluate("window.__listaRaw=localStorage.getItem('python-de-cabeca-v1'); localStorage.setItem('python-de-cabeca-v1',window.__listaRaw+' '); document.getElementById('lista-notas').value='nota de tabela'; document.getElementById('lista-notas').dispatchEvent(new Event('input',{bubbles:true})); document.getElementById('lista-notas').dispatchEvent(new Event('blur')); ");
+    await waitFor(() => evaluate("document.getElementById('lista-save-status').textContent.includes('outra aba')"), "aviso de conflito na lista");
+    await evaluate("localStorage.setItem('python-de-cabeca-v1',window.__listaRaw); document.getElementById('lista-notas').dispatchEvent(new Event('blur'))");
+    await click("lista-close");
+    await send("Page.reload");
+    await waitFor(() => evaluate("document.querySelectorAll('.exercise-link').length===136"), "recarga do subitem");
+    await evaluate("window.confirm=()=>true");
+    await click("lista-open");
+    assert.equal(await evaluate("document.getElementById('lista-selecao').value==='16' && document.getElementById('lista-subitem').value==='16b' && document.getElementById('lista-notas').value==='nota de tabela'"), true);
+  }
+  await click("lista-close");
+  console.log("OK: lista preserva rascunho e nota após recarga e cabe nas três larguras" + (process.argv.includes("--layout-only") ? "." : "; dependência executada com Python."));
   await click("curriculum-button");
   assert.equal(await evaluate("document.getElementById('curriculum-dialog').open && document.querySelectorAll('.curriculum-card').length === 11"), true);
   await click("close-curriculum");
@@ -249,7 +301,12 @@ async function checked() {
   assert.equal(await evaluate("document.querySelectorAll('.exercise-link').length"), 5);
   const resumeCoachId = await evaluate("JSON.parse(localStorage.getItem('python-de-cabeca-v1')).coach.activeId");
   await send("Page.reload");
-  await waitFor(() => evaluate("document.querySelectorAll('.exercise-link').length === 136"), "retorno ao estudo livre");
+  try {
+    await waitFor(() => evaluate("document.querySelectorAll('.exercise-link').length === 136"), "retorno ao estudo livre");
+  } catch (error) {
+    console.error("Diagnóstico de recarga:", await evaluate("({quantidade:document.querySelectorAll('.exercise-link').length, aviso:document.getElementById('storage-notice-text').textContent, status:document.getElementById('storage-status').textContent, titulo:document.getElementById('exercise-title').textContent})"), errors);
+    throw error;
+  }
   await click("continue-study-button");
   assert.equal(await evaluate("JSON.parse(localStorage.getItem('python-de-cabeca-v1')).coach.activeId"), resumeCoachId);
   assert.equal(await evaluate("!document.getElementById('coach-panel').hidden"), true);
@@ -529,6 +586,7 @@ async function checked() {
   await click("export-data");
   assert.equal(await evaluate("window.__backupDownload.startsWith('python-de-cabeca-backup-') && window.__backupBlob.type === 'application/json' && window.__backupBlob.size > 500"), true);
   assert.equal(await evaluate("window.__backupBlob.text().then(text=>{const d=JSON.parse(text).state.drafts.dobro_funcao; return d.reflection.includes('Negativos') && d.experimentInput==='7' && d.experimentPrediction==='14';})"), true);
+  assert.equal(await evaluate("window.__backupBlob.text().then(text=>JSON.parse(text).state.listaAvaliacao.drafts['1'].notes==='anotação de teste')"), true);
   await click("close-data");
   await input("def frequencias(valores):\n    return {}\n");
   await click("export-python");
@@ -540,6 +598,9 @@ async function checked() {
     const saved = JSON.parse(localStorage.getItem("python-de-cabeca-v1"));
     saved.activeId = "divisao";
     saved.learning.streak.days = 7;
+    saved.campoFuturo = { original: true };
+    saved.listaAvaliacao.drafts['1'].extraFuturo = 'preservado';
+    delete saved.listaAvaliacao.active;
     const file = new File([JSON.stringify({ app: "python-de-cabeca", version: 4, state: saved })], "backup.json", { type: "application/json" });
     const transfer = new DataTransfer(); transfer.items.add(file);
     const input = document.getElementById("import-data"); input.files = transfer.files;
@@ -550,6 +611,10 @@ async function checked() {
   assert.equal(await evaluate("document.getElementById('import-summary').textContent.includes('rascunho')"), true);
   await click("confirm-import");
   await waitFor(() => evaluate("document.getElementById('exercise-title')?.textContent === 'Quociente e resto' && JSON.parse(localStorage.getItem('python-de-cabeca-v1')).learning.streak.days === 7"), "importação do backup");
+  assert.equal(await evaluate("(() => {const s=JSON.parse(localStorage.getItem('python-de-cabeca-v1'));return s.campoFuturo.original && s.listaAvaliacao.drafts['1'].extraFuturo==='preservado' && s.listaAvaliacao.drafts['1'].notes==='anotação de teste';})()"), true);
+  await click("lista-open");
+  assert.equal(await evaluate("document.getElementById('lista-selecao').value==='1' && document.getElementById('lista-notas').value==='anotação de teste'"), true);
+  await click("lista-close");
   await click("data-button");
   const beforeInvalidBackup = await evaluate("localStorage.getItem('python-de-cabeca-v1')");
   await evaluate(`(() => {

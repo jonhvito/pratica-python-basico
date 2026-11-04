@@ -57,3 +57,9 @@ Se o navegador não for encontrado, configure `BROWSER_EXECUTABLE`. Capturas e a
 A ação [.github/workflows/pages.yml](.github/workflows/pages.yml) verifica a sintaxe JavaScript, o catálogo, as regras de progresso, editor, armazenamento, planejamento e cache, as soluções com Python local e a interface em três larguras antes de publicar. Um push para `main` ou o acionamento manual do workflow inicia essa sequência. Apenas os arquivos da aplicação são publicados no GitHub Pages.
 
 Antes de alterar o projeto, leia [AGENTS.md](AGENTS.md) e [estado-atual.md](estado-atual.md). Cada commit deve atualizar o estado atual e seguir Conventional Commits, com descrição e corpo em português e registro da validação realizada.
+
+## Lista da segunda avaliação
+
+Em “Mais formas de praticar”, a lista reúne os 20 exercícios, 67 subitens rotulados e revisão temática, com referência às páginas da fonte. Os itens 1, 2, 6, 7 e 8 destacam a tentativa sem consulta. Escolha um subitem prático e verifique seus casos em Python; retorno, saída impressa e indícios estruturais aparecem separados. Esses casos e as checagens AST são parciais e não provam correção geral nem o cumprimento completo das restrições. Em 16b comparam-se colunas e valores, sem exigir os mesmos espaços de alinhamento. A execução livre aceita chamadas e `print`; explicações, previsões e subitens sem casos exigem autoconferência. Para os exercícios 2, 10 e 11, é possível incluir o código salvo do exercício 1 ou 8, respectivamente. O código incluído é executado integralmente, inclusive suas chamadas; a correção compara apenas a saída da função chamada.
+
+Rascunhos e notas da lista integram o progresso e o backup JSON existentes. O interpretador depende do carregamento inicial pela internet e continua sujeito ao limite de quatro segundos. Para casos que a lista não especifica, documente a decisão adotada, sem presumir nova exigência.

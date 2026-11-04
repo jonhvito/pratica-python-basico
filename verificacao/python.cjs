@@ -17,6 +17,9 @@ const executable = EXERCISES.filter(exercise => ['function', 'program'].includes
 const variants = executable.flatMap(exercise => [1, 7, 42, 123, 999].map(seed => LEARNING_ENGINE.materialize(exercise, seed)).filter(exercise => exercise.variantSeed).map(exercise => ({ exercise, code: exercise.solution })));
 const traces = EXERCISES.filter(exercise => exercise.kind === 'trace').map(exercise => ({ exercise: { ...exercise, kind: 'program', cases: [{ inputs: [], expected: exercise.answer || exercise.solution }] }, code: exercise.code }));
 const payloads = { solutions: executable.map(exercise => ({ exercise, code: exercise.solution })), variants, traces };
+const lista = require('../lista-testes.js').entries;
+const listaEncoded = Buffer.from(JSON.stringify(lista), 'utf8').toString('base64');
+const referencias = fs.readFileSync(path.join(__dirname, 'lista-referencias.py'), 'utf8');
 const encoded = Buffer.from(JSON.stringify(payloads), 'utf8').toString('base64');
 const script = harness + `
 import base64
@@ -64,6 +67,15 @@ function["cases"][0]["expected"] = "\\U0001f40d" * 8001
 case = check_case(function, "def test():\\n    return '\\U0001f40d' * 8001")
 assert len(case["got"]) == 8000 and case["gotLength"] == 8003, case
 
+preserve = {"id": "preserve-kwargs", "kind": "function", "fn": "test", "preserveArgs": True,
+            "cases": [{"args": [], "kwargs": {"valores": [1, 2]}, "expected": 3}]}
+unchanged = check_case(preserve, "def test(*, valores):\\n    return sum(valores)")
+assert not unchanged["changed"] and unchanged["got"] == "3", unchanged
+mutated = _check({"exercise": preserve, "code": "def test(*, valores):\\n    resultado = sum(valores)\\n    valores.append(4)\\n    return resultado"})
+_regressions += 1
+assert not mutated["pass"] and mutated["cases"][0]["changed"] and mutated["cases"][0]["got"] == "3", mutated
+assert preserve["cases"][0]["kwargs"]["valores"] == [1, 2]
+
 program = {"id": "custom-program", "kind": "program"}
 result = experiment(program, "a = int(input())\\nb = int(input())\\nprint(a + b)", {"inputs": "3\\r\\n4"})
 assert result["got"] == "7\\n" and result["stdout"] == "", result
@@ -83,7 +95,19 @@ assert result["got"] == "6", result
 result = experiment(custom, code, {"arguments": "[1, 2], 3,"})
 assert result["got"] == "6", result
 result = experiment(custom, code, {"arguments": "[1, 2], extra=3"})
+assert result["got"] == "6" and result["stdout"] == "observacao\\n", result
+result = experiment(custom, code, {"arguments": "[1, 2], **{'extra': 3}"})
 assert result["error"]["kind"] == "ValueError", result
+special = {"id": "special", "kind": "function", "fn": "teste", "cases": [{"args": [3], "kwargs": {"opcao": 4}, "expected": [3, 4], "expectedTuple": True, "expectedStdout": "ok\\n"}]}
+case = check_case(special, "def teste(x, /, *, opcao):\\n    print('ok')\\n    return (x, opcao)")
+assert case["stdout"] == case["expectedStdout"] == "ok\\n", case
+bad = _check({"exercise": special, "code": "def teste(x, /, *, opcao):\\n    return (x, opcao)"})
+assert not bad["pass"] and not bad["cases"][0]["pass"], bad
+assert bad["cases"][0]["expectedStdout"] == "ok\\n" and bad["cases"][0]["stdout"] == "" and not bad["cases"][0]["stdoutPass"], bad
+special["cases"] = [{"args": [], "expected": [29.4, {"valor": [0.3]}], "expectedTuple": True}]
+check_case(special, "def teste():\\n    return (29.40000000001, {'valor': [0.1 + 0.2]})")
+special["cases"] = [{"args": [], "kwargs": {"x": 1}, "expected": None, "expectedError": "TypeError"}]
+check_case(special, "def teste(x, /):\\n    return x")
 result = experiment(custom, code, {"arguments": "__import__('os'), 3"})
 assert result["error"]["kind"] == "ValueError", result
 result = experiment(custom, code, {"arguments": "*[1, 2]"})
@@ -101,6 +125,32 @@ assert result["error"]["kind"] == "ValueError", result
 result = experiment(custom, "def sum_with(a, b):\\n    return 'x' * 9000", {"arguments": "None, {'a': True}"})
 assert result["gotTruncated"] and result["gotLength"] == 9002 and len(result["got"]) == 8000, result
 _counts["regressions"] = _regressions
+${referencias}
+_lista = json.loads(base64.b64decode("${listaEncoded}"))
+assert set(solucoes) == set(_lista), (set(solucoes)-set(_lista),set(_lista)-set(solucoes))
+for chave, exercise in _lista.items():
+    resultado = _check({"exercise": exercise, "code": base + "\\n" + solucoes[chave]})
+    assert resultado.get("pass"), (chave, resultado)
+    errado = _check({"exercise": exercise, "code": "def " + exercise["fn"] + "(*args, **kwargs):\\n    return None"})
+    assert not all(item["pass"] for item in errado["cases"]), (chave, errado)
+restricao = _check({"exercise": _lista["8a"], "code": "import math\\ndef fatorial(n):\\n    for _ in range(1): pass\\n    return math.factorial(n) if n>=0 else None"})
+assert all(item["pass"] for item in restricao["cases"]) and restricao["rules"], restricao
+restricoes = {
+ "2a": "def sinal_vec(valores):\\n    return ['+' if x>0 else '-' if x<0 else '0' for x in valores]",
+ "3a": "def bissexto(ano):\\n    if ano%400==0: return True\\n    return ano%4==0 and ano%100!=0",
+ "6b": "def tree(n):\\n    for i in range(1,n+1): print('*'*i)",
+ "10a": "import math\\ndef exp_aprox(x,n):\\n    return sum(x**k/math.factorial(k) for k in range(n+1))",
+ "10c": "import math\\ndef exp_rapida(x,n):\\n    return sum(x**k/math.factorial(k) for k in range(n+1))",
+ "13a": "def media_valida(dados):\\n    validos=[v for v in dados if v is not None and v>=0]\\n    return (sum(validos)/len(validos) if validos else None,len(dados)-len(validos))",
+ "15a": "def soma_digitos(n):\\n    while n<0: n+=1\\n    return sum(int(i) for i in str(n))",
+}
+for chave, codigo in restricoes.items():
+    resultado = _check({"exercise": _lista[chave], "code": codigo})
+    assert all(item["pass"] for item in resultado["cases"]) and resultado["rules"], (chave, resultado)
+duplicada = _check({"exercise": _lista["6b"], "code": solucoes["6b"] + "\\n" + restricoes["6b"]})
+assert all(item["pass"] for item in duplicada["cases"]) and duplicada["rules"], duplicada
+assert not _check({"exercise": _lista["19a"], "code": "def pares_soma(valores, alvo):\\n    return [[2,6],[7,1]]"})["cases"][0]["pass"]
+_counts["lista"] = len(_lista)
 print(json.dumps({"status": "OK", "checks": _counts}, ensure_ascii=True))
 `;
 

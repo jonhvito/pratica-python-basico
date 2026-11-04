@@ -310,6 +310,23 @@
       learning: { records: {}, attempts: [], mistakes: [], sessions: [], streak: { days: 0, lastDate: null } } };
     if (own(source, "activeId") && keepId(source.activeId)) clean.activeId = source.activeId;
     optional(source, clean, "lastMode", "estado", (item, field) => enumeration(item, field, MODES));
+    if (own(source, "listaAvaliacao")) {
+      const lista = object(source.listaAvaliacao, "listaAvaliacao");
+      const drafts = object(lista.drafts, "listaAvaliacao.drafts");
+      for (const [id, draft] of Object.entries(drafts)) {
+        const path = "listaAvaliacao.drafts." + id;
+        const row = object(draft, path);
+        for (const key of ["code", "notes"]) if (own(row, key)) {
+          string(row[key], path + "." + key);
+          if (row[key].length > 100000) invalid(path + "." + key, "texto maior que 100.000 caracteres");
+        }
+        // Antes desta versão subitem era campo desconhecido. Preserve qualquer valor
+        // legado; a interface só utiliza identificadores presentes no catálogo.
+      }
+      if (own(lista, "active")) numeric(lista.active, "listaAvaliacao.active", 1, 20, true);
+      // Conserva campos desconhecidos em backups da versão suportada.
+      clean.listaAvaliacao = JSON.parse(JSON.stringify(lista));
+    }
 
     function sessionValue(value, path, coach) {
       if (value === null) return null;

@@ -18,8 +18,10 @@ def _equal(actual, expected):
         return actual is None
     if isinstance(expected, (int, float)):
         return type(actual) in (int, float) and math.isclose(actual, expected, rel_tol=1e-9, abs_tol=1e-9)
-    if isinstance(expected, list):
-        return isinstance(actual, list) and len(actual) == len(expected) and all(_equal(a, b) for a, b in zip(actual, expected))
+    if isinstance(expected, (list, tuple)):
+        return type(actual) is type(expected) and len(actual) == len(expected) and all(_equal(a, b) for a, b in zip(actual, expected))
+    if isinstance(expected, dict):
+        return isinstance(actual, dict) and actual.keys() == expected.keys() and all(_equal(actual[k], v) for k, v in expected.items())
     return type(actual) is type(expected) and actual == expected
 
 def _error(exc):
@@ -71,6 +73,40 @@ def _check(payload):
     if exercise["id"] == "filtra_pares" and "append" not in calls:
         rules.append("Treine a construção da lista usando append().")
 
+    # Regras locais opcionais, limitadas ao corpo da função selecionada.
+    spec = exercise.get("didactic", {})
+    definitions = [node for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == exercise.get("fn")]
+    target = definitions[-1] if definitions else None
+    if spec and target:
+        nodes = list(ast.walk(target))
+        target_calls = {node.func.id if isinstance(node.func, ast.Name) else node.func.attr
+                        for node in nodes if isinstance(node, ast.Call) and isinstance(node.func, (ast.Name, ast.Attribute))}
+        for kind, cls in (("for", ast.For), ("while", ast.While), ("break", ast.Break), ("continue", ast.Continue)):
+            if kind in spec.get("require", []) and not any(isinstance(node, cls) for node in nodes):
+                rules.append("Confira o uso de " + kind + " na função selecionada.")
+        for name in spec.get("calls", []):
+            if name not in target_calls:
+                rules.append("A função selecionada deve chamar " + name + "().")
+        for name in spec.get("forbidCalls", []):
+            if name in target_calls:
+                rules.append("Confira a restrição: não use " + name + "() nesta função.")
+        if spec.get("noPower") and any(isinstance(node, ast.Pow) for node in nodes):
+            rules.append("Confira a restrição: não use ** nesta função.")
+        if spec.get("noIf") and any(isinstance(node, (ast.If, ast.IfExp)) for node in nodes):
+            rules.append("Confira a restrição: use uma expressão sem if.")
+        if spec.get("nestedFor") and not any(isinstance(node, ast.For) and any(isinstance(child, ast.For) for stmt in node.body for child in ast.walk(stmt)) for node in nodes):
+            rules.append("Confira a presença de dois for aninhados.")
+        if spec.get("singleLoop") and sum(isinstance(node, (ast.For, ast.While)) for node in nodes) != 1:
+            rules.append("Confira a restrição de um único laço.")
+        if "continue" in spec.get("forbidNodes", []) and any(isinstance(node, ast.Continue) for node in nodes):
+            rules.append("Confira a restrição: não use continue nesta versão.")
+        if spec.get("noTextMult") and any(isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mult) and any(isinstance(side, ast.Constant) and isinstance(side.value, str) for side in (node.left, node.right)) for node in nodes):
+            rules.append("Confira a restrição: não multiplique texto nesta versão.")
+        if spec.get("requireTextMult") and not any(isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mult) for node in nodes):
+            rules.append("Confira a multiplicação de texto solicitada.")
+        if spec.get("requireIf") and not any(isinstance(node, ast.If) for node in nodes):
+            rules.append("Confira a versão com if solicitada.")
+
     results = []
     for case in exercise["cases"]:
         output = _Output()
@@ -89,12 +125,40 @@ def _check(payload):
                     function = environment.get(exercise["fn"])
                     if not callable(function):
                         raise NameError("Defina a função " + exercise["fn"] + " com o nome pedido.")
+                    # Saídas de demonstrações no módulo não integram a chamada avaliada.
+                    output.seek(0)
+                    output.truncate(0)
                     args = copy.deepcopy(case["args"])
-                    actual = function(*args)
-                    passed = _equal(actual, case["expected"])
-                    changed = bool(exercise.get("preserveArgs") and args != case["args"])
+                    kwargs = copy.deepcopy(case.get("kwargs", {}))
+                    if case.get("expectedError"):
+                        try:
+                            function(*args, **kwargs)
+                        except BaseException as exc:
+                            passed = type(exc).__name__ == case["expectedError"]
+                            results.append({"pass": passed, "got": type(exc).__name__, "expected": case["expectedError"], "expectedError": True, "stdout": output.getvalue()})
+                        else:
+                            results.append({"pass": False, "got": "Sem erro", "expected": case["expectedError"], "expectedError": True, "stdout": output.getvalue()})
+                        continue
+                    actual = function(*args, **kwargs)
+                    expected = ast.literal_eval(case["expectedLiteral"]) if "expectedLiteral" in case else case["expected"]
+                    if case.get("expectedTuple"):
+                        expected = tuple(expected)
+                    passed = _equal(actual, expected)
+                    value_pass = passed
+                    if "expectedStdout" in case:
+                        passed = passed and _normalize(output.getvalue()) == _normalize(case["expectedStdout"])
+                    if "expectedStdoutTokens" in case:
+                        passed = passed and [line.split() for line in output.getvalue().splitlines() if line.strip()] == case["expectedStdoutTokens"]
+                    changed = bool(exercise.get("preserveArgs") and (args != case["args"] or kwargs != case.get("kwargs", {})))
                     passed = passed and not changed
-                    result = dict(_values(actual, case["expected"], True), **{"pass": passed, "changed": changed})
+                    result = dict(_values(actual, expected, True), **{"pass": passed, "changed": changed})
+                    result["valuePass"] = value_pass
+                    if "expectedStdout" in case:
+                        result["expectedStdout"] = case["expectedStdout"]
+                        result["stdoutPass"] = _normalize(output.getvalue()) == _normalize(case["expectedStdout"])
+                    if "expectedStdoutTokens" in case:
+                        result["expectedStdout"] = "\\n".join(" ".join(row) for row in case["expectedStdoutTokens"])
+                        result["stdoutPass"] = [line.split() for line in output.getvalue().splitlines() if line.strip()] == case["expectedStdoutTokens"]
                 else:
                     actual = _normalize(output.getvalue())
                     expected = _normalize(case["expected"])
@@ -109,7 +173,8 @@ def _check(payload):
                 result["stdout"] = output.getvalue() if exercise["kind"] == "function" else ""
                 results.append(result)
         except BaseException as exc:
-            expected = _display(case["expected"], exercise["kind"] == "function")
+            expected_value = ast.literal_eval(case["expectedLiteral"]) if "expectedLiteral" in case else case["expected"]
+            expected = _display(expected_value, exercise["kind"] == "function")
             results.append({"pass": False, "error": _error(exc), "expected": expected["text"],
                             "expectedTruncated": expected["truncated"], "expectedLength": expected["length"]})
     return {"cases": results, "rules": rules, "pass": not rules and all(result["pass"] for result in results)}
@@ -138,6 +203,7 @@ def _experiment(payload):
                 raise EOFError("Seu código pediu mais entradas do que as linhas fornecidas.") from None
         environment = {"__name__": "__main__", "__builtins__": dict(vars(builtins), input=read_input)}
         args = []
+        kwargs = {}
         if exercise["kind"] == "function":
             phase = "arguments"
             if "arguments" in options:
@@ -146,9 +212,13 @@ def _experiment(payload):
                     raise ValueError("Use até 8.000 caracteres nos argumentos.")
                 # O parser aceita literais Python separados por vírgulas. Nenhuma chamada é avaliada.
                 call = ast.parse("_argumentos(" + arguments + ")", mode="eval").body
-                if not isinstance(call, ast.Call) or not isinstance(call.func, ast.Name) or call.func.id != "_argumentos" or call.keywords:
-                    raise ValueError("Forneça apenas argumentos posicionais em valores literais Python.")
+                if not isinstance(call, ast.Call) or not isinstance(call.func, ast.Name) or call.func.id != "_argumentos" or any(keyword.arg is None for keyword in call.keywords):
+                    raise ValueError("Forneça apenas argumentos literais Python, sem desempacotamento.")
                 args = [ast.literal_eval(value) for value in call.args]
+                for keyword in call.keywords:
+                    if keyword.arg in kwargs:
+                        raise ValueError("Argumento nomeado repetido: " + keyword.arg)
+                    kwargs[keyword.arg] = ast.literal_eval(keyword.value)
             else:
                 args = copy.deepcopy(options.get("args", []))
                 if not isinstance(args, list):
@@ -160,7 +230,7 @@ def _experiment(payload):
                 function = environment.get(exercise["fn"])
                 if not callable(function):
                     raise NameError("Defina a função " + exercise["fn"] + " com o nome pedido.")
-                actual = function(*args)
+                actual = function(*args, **kwargs)
             else:
                 actual = output.getvalue()
         display = _display(actual, exercise["kind"] == "function")

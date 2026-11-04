@@ -1,4 +1,4 @@
-const cacheName = "python-de-cabeca-v14";
+const cacheName = "python-de-cabeca-v16";
 const cachePrefix = "python-de-cabeca-v";
 const shell = [
   "./",
@@ -14,6 +14,9 @@ const shell = [
   "./armazenamento.js",
   "./editor.js",
   "./estudo.js",
+  "./lista-avaliacao.js",
+  "./lista-testes.js",
+  "./lista-interface.js",
   "./treinador.js",
   "./manifest.webmanifest",
   "./icone.svg"

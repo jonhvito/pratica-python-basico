@@ -1,10 +1,12 @@
 # Estado atual da aplicação
 
-Atualizado em 03/10/2026.
+Atualizado em 04/11/2026.
 
 ## Aplicação e objetivo
 
 `Python, de cabeça` é uma aplicação estática de estudo de Python, com 136 atividades em 11 unidades. Abre pelo `index.html` ou pelo GitHub Pages e usa HTML, CSS e JavaScript sem build ou backend. Oferece prática livre, sessões adaptativas, diagnóstico, caderno de erros, desafios de seis questões e impressão para prática no papel.
+
+Em “Mais formas de praticar”, a seção independente “Lista da segunda avaliação” acrescenta os 20 exercícios e 67 subitens rotulados da lista fornecida pelo usuário, com revisão em 11 tópicos e correção por casos para 42 itens práticos. O exercício 1 não tem subitem rotulado; contando-o, são 68 tarefas principais. O catálogo anterior e seus identificadores não foram substituídos.
 
 O progresso usa a chave `python-de-cabeca-v1` do `localStorage`, com estado na versão 4. Há exportação e importação de backup JSON. O interpretador Pyodide roda em um worker, é carregado pela internet e tem limite de execução de quatro segundos. O service worker armazena a interface; isso não garante correção Python totalmente offline.
 
@@ -66,11 +68,13 @@ O caderno guarda a variação e a correção original, mostra entrada/esperado/o
 
 ## Cache e publicação
 
-`service-worker.js` usa o cache `python-de-cabeca-v14`, incluindo os módulos de progresso, editor, armazenamento, planejamento e estudo. `.github/workflows/pages.yml` verifica sintaxe, módulos puros, Python local e interface antes de publicar também os novos módulos. As fontes de manutenção e os artefatos de teste não entram na lista de arquivos públicos. Os commits desta revisão são locais; a publicação ocorre quando forem enviados para `main` no GitHub.
+`service-worker.js` usa o cache `python-de-cabeca-v16`, incluindo os módulos de progresso, editor, armazenamento, planejamento, estudo e os três módulos da lista. `.github/workflows/pages.yml` verifica sintaxe, módulos puros, catálogo da lista, Python local e interface antes de publicar. As fontes de manutenção, as soluções de referência em `verificacao/lista-referencias.py` e os artefatos de teste não entram na lista de arquivos públicos. O envio para `main` aciona a publicação; a validação local não certifica uma execução futura do workflow nem a disponibilidade da nova revisão no Pages.
 
 O cache remove somente versões antigas de `python-de-cabeca-v`; caches de outras aplicações da mesma origem são preservados. Os arquivos da versão instalada não são atualizados individualmente em segundo plano. Recursos ausentes sem rede recebem resposta controlada 503.
 
 ## Validação
+
+Rodada de 04/11/2026: sintaxe JavaScript, catálogo anterior, progresso/backup (36 verificações), editor, armazenamento (31), planejamento (19), cache, catálogo da lista e Python local aprovados. A suíte Python inclui as 56 soluções anteriores, 90 variações, 47 leituras, 28 regressões e as 42 soluções de referência da lista, com casos que rejeitam respostas incorretas e indícios de descumprimento das restrições. `node verificacao/verificar.cjs` passou com Pyodide, execução da dependência `sinal → sinal_vec`, correção de argumentos nomeados e funções impressoras, backups, importação da lista sem `active`, conflito visível no modal e três larguras. As capturas de resultados em computador e celular foram inspecionadas. Uma execução anterior do navegador excedeu o tempo na recarga, sem causa determinada; execuções completas posteriores passaram. Após o ajuste final de `preserveArgs` para argumentos nomeados, sintaxe, Python local e catálogo foram repetidos; o navegador não foi repetido para esse ajuste isolado, coberto por duas regressões locais. `git diff --check` aprovado. Estes resultados não substituem uma execução de CI Linux após o push.
 
 Rodada integrada de 03/10/2026: sintaxe de todos os arquivos `.js` e `.cjs`, catálogo, editor, cache, 36 verificações de progresso/backup, 31 de armazenamento e 19 de planejamento aprovados. O pipeline `node verificacao/python.cjs --emit-python | python -` aprovou 56 soluções, 90 variações, 47 leituras e 22 regressões. `node verificacao/verificar.cjs` passou com Pyodide, diagnóstico pela primeira resposta, dicas graduais, casos próprios sem crédito, notas preservadas ao refazer, exportação de backup e `.py`, interrupção de laço, impressão, três larguras, recarga offline e console sem exceções. Capturas do painel e projeto no celular foram inspecionadas.
 
@@ -87,7 +91,25 @@ O verificador usa um perfil temporário do sistema para evitar a sincronização
 
 O progresso é local ao navegador, sem conta ou sincronização automática. A correção Python depende do carregamento do CDN; o cache da interface não garante o interpretador offline. O limite de execução continua em quatro segundos. Domínio e dicas são indicadores de estudo; os casos de teste e as verificações estruturais não provam correção para todas as entradas possíveis.
 
+## Lista da segunda avaliação
+
+`lista-avaliacao.js` reúne enunciados adaptados, dicas, critérios pessoais e páginas da fonte local `../lista_python.pdf` (22 páginas, exercícios a partir da página 11), sem publicar o PDF ou dados de contato. `lista-testes.js` define casos para 42 itens práticos. `lista-interface.js` oferece seleção de exercício/subitem, editor, execução livre e verificação por casos em um diálogo próprio. Os exercícios 1, 2, 6, 7 e 8 destacam a orientação do professor para refazer sem consultar anotações; revisão, dicas e critérios permanecem recolhidos até ação do estudante.
+
+A correção compara retorno e saída impressa, aceita tuplas e argumentos nomeados e usa tolerância numérica recursiva. Em 16b, compara as colunas e seus valores, sem exigir espaçamento idêntico. Os indícios AST aparecem separados dos casos e não verificam integralmente o método: conversões por alternativas a `str`, por exemplo, podem escapar. Explicações, previsões e subitens sem casos exigem autoconferência. Não há nota automática de prosa nem ganho de domínio na trilha anterior. Casos fora do domínio definido pela lista não ganham requisitos presumidos; a política de empate da moda deve ser explicada pelo estudante.
+
+Há um rascunho de código e notas por exercício; o seletor indica qual subitem será conferido sobre esse código. Para os exercícios 2, 10 e 11, o estudante pode incluir explicitamente o código salvo do exercício 1 ou 8. Esse código é executado integralmente, inclusive chamadas de demonstração; a correção compara somente a saída da chamada avaliada. Durante execução ou correção, editor e controles de contexto ficam bloqueados; há interrupção explícita e o mesmo limite de quatro segundos.
+
+O campo opcional `listaAvaliacao` integra o estado e os backups versão 4, sem trocar a chave principal ou apagar dados anteriores. Código e notas têm limite de 100.000 caracteres por campo. A ausência de `active` é compatível e a interface usa o primeiro exercício. Campos desconhecidos de versões suportadas são preservados na gravação, exportação e importação; versões futuras continuam protegidas/rejeitadas. O aviso de persistência também aparece no diálogo da lista. O ambiente `.venv` da pasta superior aponta para outra máquina e não foi alterado; a validação usou o Python disponível neste computador, sem novas dependências obrigatórias.
+
 ## Registro de alterações
+
+### 04/11/2026 — Lista da segunda avaliação com correção por subitem
+
+- **O que foi feito:** seção própria com 20 exercícios, 67 subitens rotulados, revisão, dicas sob demanda, 42 itens com casos Python e autoconferência dos demais; rascunhos/notas no backup e destaque à primeira tentativa sem consulta em 1, 2, 6, 7 e 8. Catálogo antigo preservado.
+- **Motivo:** incorporar a lista disponibilizada pelo professor sem tratar exercícios antigos semelhantes como equivalentes nem substituir a proposta de aprendizagem contínua por uma página dependente de prova ou data.
+- **Áreas afetadas:** três módulos `lista-*.js`, interface, executor Python, validação/importação do progresso, documentação, cache v16, workflow de publicação e testes. Novos recursos do executor cobrem argumentos nomeados, tuplas, dicionários com tolerância, exceções esperadas, saída impressa e indícios estruturais locais.
+- **Validação:** `node --check` em JavaScript/CJS; `node verificacao/conteudo.cjs`, `progresso.cjs`, `editor.cjs`, `armazenamento.cjs`, `planejamento.cjs`, `cache.cjs`, `lista.cjs` e `python.cjs`; `node verificacao/verificar.cjs` com Pyodide; capturas de resultados em computador/celular inspecionadas; `git diff --check`. Catálogo novo e Python local foram repetidos pelo coordenador ao conferir a integração. Fonte PDF e critérios numéricos também passaram por conferência independente.
+- **Limites:** checagens finitas e AST parciais, sem certificação de método ou proficiência; parte da lista requer execução exploratória/autoconferência. Há um único código por exercício, não versões independentes por subitem. Uma execução de navegador excedeu o tempo de recarga; as posteriores passaram, sem diagnóstico da causa inicial. Publicação será disparada pelo push autorizado, não por esta validação local.
 
 ### 03/10/2026 — Apresentação no README e no About
 

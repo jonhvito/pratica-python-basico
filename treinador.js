@@ -158,6 +158,7 @@
     try {
       const saved = loadedStorage.state;
       if (!saved || typeof saved !== "object") return fresh;
+      if (saved.listaAvaliacao) fresh.listaAvaliacao = JSON.parse(JSON.stringify(saved.listaAvaliacao));
       if (byId.has(saved.activeId)) fresh.activeId = saved.activeId;
       if (["practice", "coach", "exam"].includes(saved.lastMode)) fresh.lastMode = saved.lastMode;
       for (const exercise of exercises) fresh.drafts[exercise.id] = normalizeDraft(saved.drafts?.[exercise.id], exercise);
@@ -1292,6 +1293,7 @@
       const payload = JSON.parse(await file.text());
       if (request !== importRequest) return;
       pendingImport = window.PROGRESS_ENGINE.validateBackup(payload, exercises);
+      pendingImport.source = payload.state || payload;
       const imported = pendingImport.state;
       const drafts = Object.values(imported.drafts || {}).filter(item => item.code?.trim()).length;
       const attempts = imported.learning?.attempts?.length || 0;
@@ -1312,7 +1314,7 @@
   function confirmImport() {
     if (!pendingImport || busy) return;
     clearTimeout(saveTimer); saveTimer = null;
-    const result = storage.replace(pendingImport.state);
+    const result = storage.replace(pendingImport.source);
     if (result.ok) window.location.reload();
     else { lastStorageResult = result; renderStorageStatus(); $("data-status").textContent = result.message; }
   }
@@ -1343,6 +1345,7 @@
   }
 
   $("answer").addEventListener("input", recordInput);
+  window.LISTA_INTERFACE.init({ getState: () => state, save, scheduleSave });
   $("answer").addEventListener("blur", () => { if (saveTimer !== null) save(); });
   $("answer").addEventListener("keydown", event => {
     if (event.key === "Escape") { escapeTab = true; return; }

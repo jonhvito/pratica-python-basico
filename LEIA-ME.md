@@ -112,3 +112,9 @@ A **correção de código precisa de internet** para carregar o interpretador do
 ## Verificação opcional para desenvolvimento
 
 A pasta `verificacao` contém um script sem dependências para testar a página em Chrome/Edge oculto, com Node 22 ou superior: execute `node verificacao/verificar.cjs` a partir desta pasta. Ele testa o currículo, todos os formatos, todas as soluções executáveis, salvamento, diagnóstico, erros, interrupção, desafios, impressão e recarga offline, e gera capturas e PDF em `verificacao/artefatos`. Nada disso é necessário para estudar: basta abrir `index.html`.
+
+## Lista da segunda avaliação
+
+Abra “Mais formas de praticar” e escolha “Lista da segunda avaliação”. A seção apresenta os 20 exercícios e seus subitens, revisão por tópicos e dicas acessíveis sob demanda. Nos itens 1, 2, 6, 7 e 8, faça primeiro sem consultar anotações.
+
+Escolha um subitem prático e use **Verificar subitem** para comparar retorno e saída com casos finitos. Os indícios estruturais são separados dos resultados e não comprovam todas as restrições. A tabela 16b compara colunas, sem exigir os mesmos espaços. Em **Executar livremente**, inclua chamadas com `print`; previsões, explicações e subitens sem casos são autoconferidos. As funções dependentes podem incluir o código salvo dos exercícios 1 ou 8, inclusive suas chamadas; a verificação considera apenas a saída da função chamada. Rascunhos e notas acompanham o backup em Dados. Python precisa de internet no primeiro carregamento.
